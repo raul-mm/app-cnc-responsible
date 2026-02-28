@@ -54,7 +54,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
             width: 300,
             fit: BoxFit.cover,
             errorBuilder:
-                (_, __, ___) => const Icon(
+                (_, _, _) => const Icon(
                   Icons.broken_image,
                   size: 100,
                   color: Colors.red,

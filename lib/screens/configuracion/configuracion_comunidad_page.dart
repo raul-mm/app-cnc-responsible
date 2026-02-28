@@ -160,7 +160,7 @@ class _ConfiguracionComunidadPageState extends State<ConfiguracionComunidadPage>
                       const Text("¿Hubo rito?", style: TextStyle(fontSize: 14)),
                       Switch(
                         value: _huboRito,
-                        activeColor: Colors.redAccent,
+                        activeThumbColor: Colors.redAccent,
                         onChanged: (value) {
                           setState(() => _huboRito = value);
                         },
@@ -168,7 +168,6 @@ class _ConfiguracionComunidadPageState extends State<ConfiguracionComunidadPage>
                     ],
                   ),
                   const SizedBox(height: 24),
-
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(

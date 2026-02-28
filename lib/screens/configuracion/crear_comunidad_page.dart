@@ -149,7 +149,7 @@ class _CrearComunidadPageState extends State<CrearComunidadPage>
 
                           SwitchListTile(
                             title: const Text("¿Hubo rito?"),
-                            activeColor: Colors.redAccent,
+                            activeThumbColor: Colors.redAccent,
                             value: _huboRito,
                             onChanged: (value) {
                               setState(() {
@@ -272,7 +272,7 @@ class _CrearComunidadPageState extends State<CrearComunidadPage>
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: DropdownButtonFormField<String>(
-        value: _tipoParroquia,
+        initialValue: _tipoParroquia,
         decoration: InputDecoration(
           labelText: 'Tipo (Parroquia o Capilla)',
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),

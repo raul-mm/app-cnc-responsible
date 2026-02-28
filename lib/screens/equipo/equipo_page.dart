@@ -105,7 +105,7 @@ class _EquipoPageState extends State<EquipoPage> {
                       items: personas.map((p) {
                         final deshabilitado = _personaEnEquipo(
                           p.id!,
-                          miembroEditandoId: isEditando ? miembro!['id'] : null,
+                          miembroEditandoId: isEditando ? miembro['id'] : null,
                         );
                         return DropdownMenuItem<Persona>(
                           value: deshabilitado ? null : p,

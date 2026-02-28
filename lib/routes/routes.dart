@@ -25,7 +25,7 @@ Map<String, WidgetBuilder> getAplicationRoutes() {
         (BuildContext context) => ConfiguracionComunidadPage(),
     'signos': (BuildContext context) => SignosPage(),
     'onboarding': (BuildContext context) => OnboardingPage(),
-    'grupos': (BuildContext context) => CrearGruposPage(),
+    'grupos': (BuildContext context) => GruposPage(),
     'carismas': (BuildContext context) => CarismasPage(),
   };
 }

@@ -9,14 +9,6 @@ class Validator {
     }
   }
 
-  static String? validateDropDefaultData(value) {
-    if (value == null) {
-      return 'Please select an item.';
-    } else {
-      return null;
-    }
-  }
-
   static String? validatePassword(String value) {
     Pattern pattern = r'^.{6,}$';
     RegExp regex = RegExp(pattern as String);

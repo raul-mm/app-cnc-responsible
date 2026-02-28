@@ -16,31 +16,34 @@ class _EquiposCatequistasPageState extends State<EquiposCatequistasPage> {
   List<Persona> personas = [];
   List<Map<String, dynamic>> miembros = [];
 
+  bool loading = true;
+
   @override
   void initState() {
     super.initState();
-    _initializeData();
-  }
-
-  Future<void> _initializeData() async {
-    await _loadEquipos();
-    await _loadPersonas();
+    _refreshAll();
   }
 
   // ======================
-  // DATA
+  // REUTILIZABLES
   // ======================
-  Future<void> _loadEquipos() async {
+
+  Future<void> _refreshAll() async {
+    loading = true;
+    setState(() {});
+
     equipos = await DBHelper.getEquiposCatequistas();
-    setState(() {});
-  }
-
-  Future<void> _loadPersonas() async {
     personas = await DBHelper.getPersonas();
+
+    if (selectedEquipoId != null) {
+      await _refreshMiembros();
+    }
+
+    loading = false;
     setState(() {});
   }
 
-  Future<void> _loadMiembros() async {
+  Future<void> _refreshMiembros() async {
     if (selectedEquipoId == null) {
       miembros = [];
     } else {
@@ -49,13 +52,35 @@ class _EquiposCatequistasPageState extends State<EquiposCatequistasPage> {
     setState(() {});
   }
 
-  // ======================
-  // CREAR EQUIPO
-  // ======================
-  Future<void> _agregarEquipo() async {
-    final controller = TextEditingController();
-    String? errorText;
+  void _showMessage(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(text), behavior: SnackBarBehavior.floating),
+    );
+  }
 
+  Future<bool> _confirmAction(String title, String message) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            child: const Text('Cancelar'),
+            onPressed: () => Navigator.pop(context, false),
+          ),
+          ElevatedButton(
+            child: const Text('Aceptar'),
+            onPressed: () => Navigator.pop(context, true),
+          ),
+        ],
+      ),
+    );
+
+    return result ?? false;
+  }
+
+  void _showBottomSheet(Widget child) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -63,244 +88,218 @@ class _EquiposCatequistasPageState extends State<EquiposCatequistasPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 20,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Indicador superior
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Icono + título
-                  Row(
-                    children: const [
-                      CircleAvatar(
-                        backgroundColor: Color(0xFFFFEBEE),
-                        child: Icon(
-                          Icons.group_add_rounded,
-                          color: Color(0xFFC62828),
-                        ),
-                      ),
-                      SizedBox(width: 12),
-                      Text(
-                        'Crear equipo de catequistas',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Campo
-                  TextField(
-                    controller: controller,
-                    autofocus: true,
-                    decoration: InputDecoration(
-                      labelText: 'Nombre del equipo',
-                      hintText: 'Ej: Equipo San Pablo',
-                      errorText: errorText,
-                      prefixIcon: const Icon(Icons.group),
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Botones
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(45),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text('Cancelar'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            final nombre = controller.text.trim();
-
-                            if (nombre.isEmpty) {
-                              setModalState(() {
-                                errorText = 'Ingrese el nombre del equipo';
-                              });
-                              return;
-                            }
-
-                            final id = await DBHelper.insertEquipoCatequista(
-                              nombre,
-                            );
-
-                            selectedEquipoId = id;
-                            await _loadEquipos();
-                            await _loadMiembros();
-
-                            if (mounted) Navigator.pop(context);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFC62828),
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size.fromHeight(45),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text('Guardar'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
+      builder: (_) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: child,
+      ),
     );
   }
 
+  List<Persona> _getPersonasDisponibles() {
+    final ids = miembros.map((e) => e['persona_id']).toSet();
+    return personas.where((p) => !ids.contains(p.id)).toList();
+  }
+
   // ======================
-  // PERSONAS DISPONIBLES
+  // CREAR EQUIPO
   // ======================
-  void _mostrarPersonasDisponibles() {
-    if (selectedEquipoId == null) return;
 
-    final miembrosIds = miembros.map((e) => e['persona_id'] as int).toSet();
+  void _crearEquipo() {
+    final controller = TextEditingController();
+    String? error;
 
-    final disponibles = personas
-        .where((p) => !miembrosIds.contains(p.id))
-        .toList();
+    _showBottomSheet(
+      StatefulBuilder(
+        builder: (context, setModalState) {
+          return Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _sheetHandle(),
+                const SizedBox(height: 10),
+                const Text(
+                  'Nuevo equipo',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: controller,
+                  decoration: InputDecoration(
+                    labelText: 'Nombre del equipo',
+                    errorText: error,
+                    filled: true,
+                    fillColor: Colors.grey.shade100,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () async {
+                    final nombre = controller.text.trim();
+                    if (nombre.isEmpty) {
+                      setModalState(() => error = 'Ingrese un nombre');
+                      return;
+                    }
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) {
-        if (disponibles.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(child: Text('No hay personas disponibles')),
+                    final id = await DBHelper.insertEquipoCatequista(nombre);
+
+                    selectedEquipoId = id;
+                    await _refreshAll();
+
+                    if (mounted) Navigator.pop(context);
+                    _showMessage('Equipo creado');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFC62828),
+                    minimumSize: const Size.fromHeight(45),
+                  ),
+                  child: const Text('Guardar'),
+                ),
+              ],
+            ),
           );
-        }
-
-        return ListView(
-          children: disponibles.map((p) {
-            return ListTile(
-              leading: const Icon(Icons.person_outline),
-              title: Text('${p.nombres} ${p.apellidos}'),
-              onTap: () => _asignarPersona(p),
-            );
-          }).toList(),
-        );
-      },
-    );
-  }
-
-  // ======================
-  // ASIGNAR PERSONA
-  // ======================
-  void _asignarPersona(Persona persona) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        },
       ),
-      builder: (_) {
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.person_add_alt_1, size: 36, color: Colors.brown),
-              const SizedBox(height: 10),
-              Text(
-                '${persona.nombres} ${persona.apellidos}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: const Icon(Icons.group, color: Colors.brown),
-                title: const Text('Catequista'),
-                onTap: () => _asignarRol(persona, 'Catequista'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.star, color: Colors.deepOrange),
-                title: const Text('Responsable'),
-                onTap: () => _asignarRol(persona, 'Responsable'),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 
-  Future<void> _asignarRol(Persona persona, String rol) async {
-    if (selectedEquipoId == null) return;
+  // ======================
+  // AGREGAR PERSONA
+  // ======================
 
-    try {
-      await DBHelper.insertMiembroEquipoCatequista({
-        'equipo_id': selectedEquipoId,
-        'persona_id': persona.id,
-        'rol': rol,
-      });
+  void _mostrarDisponibles() {
+    final disponibles = _getPersonasDisponibles();
 
-      await _loadMiembros();
+    _showBottomSheet(
+      disponibles.isEmpty
+          ? _emptyState('No hay personas disponibles')
+          : ListView(
+              shrinkWrap: true,
+              children: disponibles.map((p) {
+                return ListTile(
+                  leading: const Icon(Icons.person_outline),
+                  title: Text('${p.nombres} ${p.apellidos}'),
+                  onTap: () => _seleccionarRol(p),
+                );
+              }).toList(),
+            ),
+    );
+  }
 
-      if (mounted) {
-        Navigator.pop(context);
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      debugPrint('Error: $e');
+  void _seleccionarRol(Persona p) {
+    _showBottomSheet(
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _sheetHandle(),
+          ListTile(
+            leading: const Icon(Icons.group),
+            title: const Text('Catequista'),
+            onTap: () => _asignarRol(p, 'Catequista'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.star, color: Colors.deepOrange),
+            title: const Text('Responsable'),
+            onTap: () => _asignarRol(p, 'Responsable'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _asignarRol(Persona p, String rol) async {
+    await DBHelper.insertMiembroEquipoCatequista({
+      'equipo_id': selectedEquipoId,
+      'persona_id': p.id,
+      'rol': rol,
+    });
+
+    await _refreshMiembros();
+
+    if (mounted) {
+      Navigator.pop(context);
+      Navigator.pop(context);
+      _showMessage('Persona agregada');
     }
   }
 
   Future<void> _eliminarMiembro(int personaId) async {
-    if (selectedEquipoId == null) return;
+    final ok = await _confirmAction(
+      'Eliminar',
+      '¿Desea quitar esta persona del equipo?',
+    );
+
+    if (!ok) return;
 
     await DBHelper.deleteMiembroEquipoCatequista(personaId, selectedEquipoId!);
 
-    await _loadMiembros();
+    await _refreshMiembros();
+    _showMessage('Miembro eliminado');
+  }
+
+  // ======================
+  // WIDGETS REUTILIZABLES
+  // ======================
+
+  Widget _sheetHandle() => Container(
+    width: 40,
+    height: 4,
+    margin: const EdgeInsets.only(bottom: 10),
+    decoration: BoxDecoration(
+      color: Colors.grey.shade300,
+      borderRadius: BorderRadius.circular(10),
+    ),
+  );
+
+  Widget _emptyState(String text) {
+    return Padding(
+      padding: const EdgeInsets.all(30),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.group_off, size: 60, color: Colors.grey),
+          const SizedBox(height: 10),
+          Text(text, style: const TextStyle(color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+
+  Widget _equipoDropdown() {
+    return DropdownButtonFormField<int>(
+      value: selectedEquipoId,
+      hint: const Text('Selecciona un equipo'),
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+      ),
+      items: equipos
+          .map(
+            (e) =>
+                DropdownMenuItem<int>(value: e['id'], child: Text(e['nombre'])),
+          )
+          .toList(),
+      onChanged: (value) async {
+        selectedEquipoId = value;
+        await _refreshMiembros();
+      },
+    );
   }
 
   // ======================
   // UI
   // ======================
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -311,145 +310,90 @@ class _EquiposCatequistasPageState extends State<EquiposCatequistasPage> {
         foregroundColor: Colors.white,
         centerTitle: true,
       ),
-      body: Column(
-        children: [
-          const SizedBox(height: 12),
-
-          // ======================
-          // CARDS SUPERIORES
-          // ======================
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
               children: [
-                Expanded(
-                  child: _ActionCard(
-                    icon: Icons.group_add,
-                    title: 'Crear equipo',
-                    subtitle: 'Nuevo grupo',
-                    color: Colors.brown,
-                    onTap: _agregarEquipo,
+                const SizedBox(height: 12),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _ActionCard(
+                          icon: Icons.group_add,
+                          title: 'Crear equipo',
+                          subtitle: 'Nuevo',
+                          color: Colors.brown,
+                          onTap: _crearEquipo,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _ActionCard(
+                          icon: Icons.person_add,
+                          title: 'Agregar',
+                          subtitle: 'Personas',
+                          color: selectedEquipoId == null
+                              ? Colors.grey
+                              : Colors.deepOrange,
+                          enabled: selectedEquipoId != null,
+                          onTap: _mostrarDisponibles,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 10),
+
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _equipoDropdown(),
+                ),
+                const SizedBox(height: 10),
+
                 Expanded(
-                  child: _ActionCard(
-                    icon: Icons.person_add_alt_1,
-                    title: 'Agregar',
-                    subtitle: 'Asignar personas',
-                    color: selectedEquipoId == null
-                        ? Colors.grey
-                        : Colors.deepOrange,
-                    enabled: selectedEquipoId != null,
-                    onTap: _mostrarPersonasDisponibles,
-                  ),
+                  child: selectedEquipoId == null
+                      ? _emptyState('Selecciona un equipo')
+                      : miembros.isEmpty
+                      ? _emptyState('Este equipo no tiene miembros')
+                      : ListView.builder(
+                          itemCount: miembros.length,
+                          itemBuilder: (_, i) {
+                            final m = miembros[i];
+                            return Card(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 6,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: ListTile(
+                                title: Text(
+                                  '${m['nombres']} ${m['apellidos']}',
+                                ),
+                                subtitle: Text(m['rol']),
+                                trailing: IconButton(
+                                  icon: const Icon(
+                                    Icons.delete,
+                                    color: Colors.red,
+                                  ),
+                                  onPressed: () =>
+                                      _eliminarMiembro(m['persona_id']),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                 ),
               ],
             ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // ======================
-          // DROPDOWN
-          // ======================
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: DropdownButtonFormField<int>(
-              value: selectedEquipoId,
-              hint: const Text('Selecciona un equipo'),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-              items: equipos.map((e) {
-                return DropdownMenuItem<int>(
-                  value: e['id'],
-                  child: Text(e['nombre'] ?? ''),
-                );
-              }).toList(),
-              onChanged: (value) async {
-                setState(() => selectedEquipoId = value);
-                await _loadMiembros();
-              },
-            ),
-          ),
-
-          const SizedBox(height: 10),
-
-          // ======================
-          // LISTA
-          // ======================
-          Expanded(
-            child: selectedEquipoId == null
-                ? const Center(
-                    child: Text(
-                      'Selecciona un equipo',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: miembros.length,
-                    itemBuilder: (_, index) {
-                      final m = miembros[index];
-
-                      final nombre = m['nombres'] ?? '';
-                      final apellidos = m['apellidos'] ?? '';
-                      final rol = m['rol'] ?? '';
-                      final inicial = nombre.isNotEmpty ? nombre[0] : '?';
-
-                      return Card(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 6,
-                        ),
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: const Color(0xFFD7CCC8),
-                            child: Text(inicial),
-                          ),
-                          title: Text(
-                            '$nombre $apellidos',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          subtitle: Text(
-                            rol,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: rol == 'Responsable'
-                                  ? Colors.deepOrange
-                                  : Colors.brown,
-                            ),
-                          ),
-                          trailing: IconButton(
-                            icon: const Icon(
-                              Icons.delete_outline,
-                              color: Colors.red,
-                            ),
-                            onPressed: () => _eliminarMiembro(m['persona_id']),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
     );
   }
 }
 
-// ======================
-// ACTION CARD
-// ======================
 class _ActionCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -493,7 +437,6 @@ class _ActionCard extends StatelessWidget {
                   title,
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 2),
                 Text(
                   subtitle,
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),

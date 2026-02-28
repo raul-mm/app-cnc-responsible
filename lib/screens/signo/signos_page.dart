@@ -225,7 +225,7 @@ class _SignosPageState extends State<SignosPage> {
               ? const Center(child: Text('No hay signos registrados.'))
               : ListView.separated(
                 padding: const EdgeInsets.all(12),
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                separatorBuilder: (_, _) => const SizedBox(height: 8),
                 itemCount: _signos.length,
                 itemBuilder: (context, index) {
                   final signo = _signos[index];

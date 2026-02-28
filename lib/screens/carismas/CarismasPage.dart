@@ -115,7 +115,7 @@ class _CarismasPageState extends State<CarismasPage> {
                       items: personas.map((p) {
                         final bloqueado = _personaTieneCarisma(
                           p.id!,
-                          editandoId: isEdit ? carisma!['id'] : null,
+                          editandoId: isEdit ? carisma['id'] : null,
                         );
 
                         return DropdownMenuItem(
@@ -148,7 +148,7 @@ class _CarismasPageState extends State<CarismasPage> {
 
                     // TIPO
                     DropdownButtonFormField<String>(
-                      value: tipo,
+                      initialValue: tipo,
                       decoration: _inputDecoration('Tipo de carisma'),
                       items: tiposCarisma
                           .map((t) =>
@@ -172,7 +172,7 @@ class _CarismasPageState extends State<CarismasPage> {
                         if (persona == null) return;
 
                         await DBHelper.insertOrUpdateCarisma({
-                          'id': isEdit ? carisma!['id'] : null,
+                          'id': isEdit ? carisma['id'] : null,
                           'persona_id': persona!.id,
                           'tipo': tipo,
                         });
