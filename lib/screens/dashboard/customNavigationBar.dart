@@ -17,7 +17,7 @@ class CustomNavigationBar extends StatelessWidget {
       selectedIndex: currentIndex,
       onDestinationSelected: onItemSelected,
       backgroundColor: Colors.white,
-      indicatorColor: Colors.redAccent.withOpacity(0.2),
+      indicatorColor: Colors.redAccent.withValues(alpha: 0.2),
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       elevation: 4,
       animationDuration: const Duration(milliseconds: 400),
@@ -33,9 +33,9 @@ class CustomNavigationBar extends StatelessWidget {
           label: 'Noticias',
         ),
         NavigationDestination(
-          icon: Icon(Icons.settings_outlined),
-          selectedIcon: Icon(Icons.settings_rounded),
-          label: 'Configuración',
+          icon: Icon(Icons.church_outlined),
+          selectedIcon: Icon(Icons.church_rounded),
+          label: 'Comunidad',
         ),
         NavigationDestination(
           icon: Icon(Icons.info_outline),

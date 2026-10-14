@@ -60,6 +60,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
 
   Future<void> _verificarComunidad() async {
     final comunidad = await DBHelper.obtenerComunidad();
+    if (!mounted) return;
     if (comunidad != null) {
       Navigator.pushReplacementNamed(context, 'main');
     } else {

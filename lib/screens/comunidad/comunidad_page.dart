@@ -1,8 +1,10 @@
-import 'package:app_movil_comunidad/screens/comunidad/persona_form.dart';
-import 'package:flutter/material.dart';
 import 'package:app_movil_comunidad/db/db_helper.dart';
 import 'package:app_movil_comunidad/models/persona.dart';
+import 'package:app_movil_comunidad/screens/comunidad/persona_form.dart';
+import 'package:app_movil_comunidad/widgets/ui.dart';
+import 'package:flutter/material.dart';
 
+/// Registro de las personas (hermanos) de la comunidad.
 class ComunidadPage extends StatefulWidget {
   const ComunidadPage({super.key});
 
@@ -12,8 +14,8 @@ class ComunidadPage extends StatefulWidget {
 
 class _ComunidadPageState extends State<ComunidadPage> {
   List<Persona> personas = [];
-  List<Persona> personasFiltradas = [];
-  final searchController = TextEditingController();
+  String filtro = '';
+  bool loading = true;
 
   @override
   void initState() {
@@ -23,72 +25,45 @@ class _ComunidadPageState extends State<ComunidadPage> {
 
   Future<void> _loadPersonas() async {
     final data = await DBHelper.getPersonas();
+    if (!mounted) return;
     setState(() {
       personas = data;
-      personasFiltradas = data;
+      loading = false;
     });
   }
 
-  void _filterPersonas(String query) {
-    final q = query.toLowerCase();
-    setState(() {
-      personasFiltradas = personas.where((p) {
-        return p.nombres.toLowerCase().contains(q) ||
-            p.apellidos.toLowerCase().contains(q) ||
-            (p.documento ?? '').contains(q);
-      }).toList();
-    });
+  List<Persona> get _filtradas {
+    final q = filtro.toLowerCase();
+    return personas
+        .where(
+          (p) =>
+              p.nombreCompleto.toLowerCase().contains(q) ||
+              (p.documento ?? '').contains(q),
+        )
+        .toList();
   }
 
   Future<void> _savePersona(Persona persona, bool isEdit) async {
-    if (isEdit) {
-      await DBHelper.updatePersona(persona);
-    } else {
-      await DBHelper.insertPersona(persona);
-    }
-
+    isEdit
+        ? await DBHelper.updatePersona(persona)
+        : await DBHelper.insertPersona(persona);
     await _loadPersonas();
-
     if (!mounted) return;
-
     Navigator.pop(context);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          isEdit
-              ? 'Persona actualizada correctamente'
-              : 'Persona registrada correctamente',
-        ),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    toast(context, isEdit ? 'Persona actualizada' : 'Persona registrada');
   }
 
   Future<void> _confirmDelete(Persona p) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Eliminar persona'),
-        content: Text('¿Desea eliminar a ${p.nombres}?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
+    final ok = await confirmar(
+      context,
+      titulo: 'Eliminar persona',
+      mensaje:
+          '¿Eliminar a ${p.nombreCompleto}? También se quitará de equipos, '
+          'grupos, signos y carismas.',
     );
-
-    if (confirm == true) {
-      await DBHelper.deletePersona(p.id!);
-      _loadPersonas();
-    }
+    if (!ok) return;
+    await DBHelper.deletePersona(p.id!);
+    await _loadPersonas();
   }
 
   void _showPersonaForm({Persona? persona}) {
@@ -99,118 +74,105 @@ class _ComunidadPageState extends State<ComunidadPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.9,
-        maxChildSize: 0.95,
-        builder: (_, controller) {
-          return PersonaForm(
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.92,
+          maxChildSize: 0.95,
+          builder: (_, controller) => PersonaForm(
             persona: persona,
             personas: personas,
             scrollController: controller,
             onSave: _savePersona,
-          );
-        },
+          ),
+        ),
       ),
     );
   }
 
-  Widget _emptyState() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.people_outline, size: 70, color: Colors.grey),
-          SizedBox(height: 10),
-          Text('No hay personas registradas'),
-        ],
-      ),
-    );
+  String? _conyuge(Persona p) {
+    if (p.conyugeId == null) return null;
+    for (final o in personas) {
+      if (o.id == p.conyugeId) return o.nombreCompleto;
+    }
+    return null;
   }
 
-  Widget _buildList() {
-    return ListView.separated(
-      itemCount: personasFiltradas.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (_, index) {
-        final p = personasFiltradas[index];
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(14),
-            title: Text(
-              '${p.nombres} ${p.apellidos}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (p.documento != null) Text('DNI: ${p.documento}'),
-                if (p.telefono != null) Text('Tel: ${p.telefono}'),
-                if (p.estadoCivil != null)
-                  Text('Estado civil: ${p.estadoCivil}'),
-              ],
-            ),
-            trailing: Wrap(
-              spacing: 6,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.edit, color: Colors.orange),
-                  onPressed: () => _showPersonaForm(persona: p),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _confirmDelete(p),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+  Widget _tile(Persona p) {
+    final conyuge = _conyuge(p);
+    final detalles = [
+      if (p.telefono != null) p.telefono!,
+      if (p.estadoCivil != null) p.estadoCivil!,
+      if (conyuge != null) 'con $conyuge',
+    ];
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: ListTile(
+        onTap: () => _showPersonaForm(persona: p),
+        leading: Avatar(p.nombreCompleto),
+        title: Text(
+          p.nombreCompleto,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        subtitle: detalles.isEmpty ? null : Text(detalles.join(' · ')),
+        trailing: IconButton(
+          icon: Icon(Icons.delete_outline, color: Colors.grey.shade600),
+          onPressed: () => _confirmDelete(p),
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mi comunidad'),
-        backgroundColor: const Color(0xFFC62828),
-        foregroundColor: Colors.white,
-        centerTitle: true,
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.black,
+    final lista = _filtradas;
+    return AppPage(
+      title: 'Personas (${personas.length})',
+      fab: AppFab(
+        label: 'Persona',
+        icon: Icons.person_add_alt_1,
         onPressed: () => _showPersonaForm(),
-        child: const Icon(Icons.add),
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: TextField(
-              controller: searchController,
-              onChanged: _filterPersonas,
-              decoration: InputDecoration(
-                hintText: 'Buscar persona...',
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: Colors.grey.shade100,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: TextField(
+                    onChanged: (v) => setState(() => filtro = v),
+                    decoration: appInput(
+                      'Buscar por nombre o DNI',
+                      icon: Icons.search,
+                    ),
+                  ),
                 ),
-              ),
+                Expanded(
+                  child: lista.isEmpty
+                      ? EmptyState(
+                          icon: Icons.people_outline,
+                          text: personas.isEmpty
+                              ? 'Aún no hay personas'
+                              : 'Sin resultados',
+                          hint: personas.isEmpty
+                              ? 'Registra a los hermanos de la comunidad para '
+                                    'luego formar equipos, grupos y carismas.'
+                              : null,
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.only(bottom: 90),
+                          itemCount: lista.length,
+                          itemBuilder: (_, i) => _tile(lista[i]),
+                        ),
+                ),
+              ],
             ),
-          ),
-          Expanded(
-            child: personasFiltradas.isEmpty ? _emptyState() : _buildList(),
-          ),
-        ],
-      ),
     );
   }
 }

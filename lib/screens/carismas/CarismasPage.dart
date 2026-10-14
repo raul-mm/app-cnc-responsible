@@ -1,7 +1,10 @@
-import 'package:flutter/material.dart';
 import 'package:app_movil_comunidad/db/db_helper.dart';
 import 'package:app_movil_comunidad/models/persona.dart';
+import 'package:app_movil_comunidad/utils/catalogos.dart';
+import 'package:app_movil_comunidad/widgets/ui.dart';
+import 'package:flutter/material.dart';
 
+/// Carismas de la comunidad. Una persona puede tener varios.
 class CarismasPage extends StatefulWidget {
   const CarismasPage({super.key});
 
@@ -11,254 +14,169 @@ class CarismasPage extends StatefulWidget {
 
 class _CarismasPageState extends State<CarismasPage> {
   List<Persona> personas = [];
-  final List<Map<String, dynamic>> carismas = [];
-
-  final List<String> tiposCarisma = [
-    'Seminarista',
-    'Sacerdote',
-    'Ostiario',
-    'Responsable de Salmos',
-    'Familia en misión',
-    'Itinerante',
-  ];
+  List<Map<String, dynamic>> carismas = [];
+  bool soloConPersonas = false;
+  bool loading = true;
 
   @override
   void initState() {
     super.initState();
-    _cargarPersonas();
-    _cargarCarismas();
+    _cargar();
   }
 
-  Future<void> _cargarPersonas() async {
-    personas = await DBHelper.getPersonas();
-    setState(() {});
-  }
-
-  Future<void> _cargarCarismas() async {
-    final data = await DBHelper.getCarismas();
+  Future<void> _cargar() async {
+    final p = await DBHelper.getPersonas();
+    final c = await DBHelper.getCarismas();
+    if (!mounted) return;
     setState(() {
-      carismas.clear();
-      carismas.addAll(data);
+      personas = p;
+      carismas = c;
+      loading = false;
     });
   }
 
-  bool _personaTieneCarisma(int personaId, {int? editandoId}) {
-    return carismas.any((c) {
-      final mismaPersona = c['persona_id'] == personaId;
-      final noEsElMismo = editandoId == null ? true : c['id'] != editandoId;
-      return mismaPersona && noEsElMismo;
-    });
+  /// Incluye tipos antiguos que no estén en el catálogo actual.
+  List<String> get _tipos => [
+    ...tiposCarisma,
+    ...carismas
+        .map((c) => c['tipo'] as String)
+        .where((t) => !tiposCarisma.contains(t))
+        .toSet(),
+  ];
+
+  List<Map<String, dynamic>> _de(String tipo) =>
+      carismas.where((c) => c['tipo'] == tipo).toList();
+
+  Future<void> _editarTipo(String tipo) async {
+    final sel = await seleccionarPersonas(
+      context,
+      titulo: tipo,
+      personas: personas,
+      seleccionadas: _de(tipo).map((c) => c['persona_id'] as int).toSet(),
+    );
+    if (sel == null) return;
+    await DBHelper.setPersonasCarisma(tipo, sel.map((p) => p.id!).toList());
+    await _cargar();
   }
 
-  // =====================
-  // MODAL
-  // =====================
-  void _mostrarModal({Map<String, dynamic>? carisma}) {
-    final isEdit = carisma != null;
+  Future<void> _porPersona() async {
+    final sel = await seleccionarPersonas(
+      context,
+      titulo: 'Elige una persona',
+      personas: personas,
+      multiple: false,
+    );
+    if (sel == null || sel.isEmpty || !mounted) return;
+    final p = sel.first;
+    final marcados = carismas
+        .where((c) => c['persona_id'] == p.id)
+        .map((c) => c['tipo'] as String)
+        .toSet();
 
-    Persona? persona = isEdit
-        ? personas.firstWhere((p) => p.id == carisma['persona_id'])
-        : null;
-
-    String tipo = isEdit ? carisma['tipo'] : tiposCarisma.first;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    final guardar = await showAppSheet<bool>(
+      context,
+      titulo: 'Carismas de ${p.nombreCompleto}',
+      icon: Icons.auto_awesome_outlined,
+      builder: (ctx, setSheet) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: _tipos
+                .map(
+                  (t) => FilterChip(
+                    label: Text(t),
+                    selected: marcados.contains(t),
+                    selectedColor: kRojo.withValues(alpha: 0.15),
+                    checkmarkColor: kRojo,
+                    onSelected: (v) =>
+                        setSheet(() => v ? marcados.add(t) : marcados.remove(t)),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            style: primaryButton(),
+            icon: const Icon(Icons.save),
+            label: const Text('Guardar'),
+            onPressed: () => Navigator.pop(ctx, true),
+          ),
+        ],
       ),
-      builder: (_) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
-                left: 20,
-                right: 20,
-                top: 20,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+    );
+    if (guardar != true) return;
+    await DBHelper.setCarismasPersona(p.id!, marcados.toList());
+    await _cargar();
+  }
 
-                    Row(
-                      children: const [
-                        Icon(Icons.volunteer_activism,
-                            color: Colors.redAccent),
-                        SizedBox(width: 8),
-                        Text(
-                          'Registrar Carisma',
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w600),
+  Future<void> _quitar(Map<String, dynamic> c) async {
+    final ok = await confirmar(
+      context,
+      titulo: 'Quitar carisma',
+      mensaje: '¿Quitar "${c['tipo']}" a ${c['nombre_completo']}?',
+      accion: 'Quitar',
+    );
+    if (!ok) return;
+    await DBHelper.deleteCarisma(c['id']);
+    await _cargar();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tipos = _tipos.where((t) => !soloConPersonas || _de(t).isNotEmpty);
+    return AppPage(
+      title: 'Carismas',
+      actions: [
+        IconButton(
+          tooltip: soloConPersonas ? 'Ver todos' : 'Solo con personas',
+          icon: Icon(
+            soloConPersonas ? Icons.filter_alt : Icons.filter_alt_outlined,
+          ),
+          onPressed: () => setState(() => soloConPersonas = !soloConPersonas),
+        ),
+      ],
+      fab: AppFab(
+        label: 'Por persona',
+        icon: Icons.person_search,
+        onPressed: _porPersona,
+      ),
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : personas.isEmpty
+          ? const EmptyState(
+              icon: Icons.auto_awesome_outlined,
+              text: 'No hay personas registradas',
+              hint: 'Registra personas para asignarles carismas.',
+            )
+          : ListView(
+              padding: const EdgeInsets.only(top: 10, bottom: 90),
+              children: [
+                for (final t in tipos)
+                  SectionCard(
+                    title: '$t  (${_de(t).length})',
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final c in _de(t))
+                          PersonaChip(
+                            nombre: c['nombre_completo'],
+                            onDeleted: () => _quitar(c),
+                          ),
+                        ActionChip(
+                          avatar: const Icon(Icons.edit, size: 16, color: kRojo),
+                          label: const Text('Editar'),
+                          side: const BorderSide(color: kRojo),
+                          backgroundColor: Colors.white,
+                          onPressed: () => _editarTipo(t),
                         ),
                       ],
                     ),
-
-                    const SizedBox(height: 20),
-
-                    // PERSONA
-                    DropdownButtonFormField<Persona>(
-                      initialValue: persona,
-                      isExpanded: true,
-                      decoration: _inputDecoration('Persona'),
-                      items: personas.map((p) {
-                        final bloqueado = _personaTieneCarisma(
-                          p.id!,
-                          editandoId: isEdit ? carisma['id'] : null,
-                        );
-
-                        return DropdownMenuItem(
-                          value: bloqueado ? null : p,
-                          enabled: !bloqueado,
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '${p.nombres} ${p.apellidos}',
-                                  style: TextStyle(
-                                    color: bloqueado
-                                        ? Colors.grey
-                                        : Colors.black,
-                                  ),
-                                ),
-                              ),
-                              if (bloqueado)
-                                const Icon(Icons.lock,
-                                    size: 16, color: Colors.grey),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (value) =>
-                          setModalState(() => persona = value),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // TIPO
-                    DropdownButtonFormField<String>(
-                      initialValue: tipo,
-                      decoration: _inputDecoration('Tipo de carisma'),
-                      items: tiposCarisma
-                          .map((t) =>
-                              DropdownMenuItem(value: t, child: Text(t)))
-                          .toList(),
-                      onChanged: (value) =>
-                          setModalState(() => tipo = value!),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.redAccent,
-                        minimumSize: const Size.fromHeight(48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: () async {
-                        if (persona == null) return;
-
-                        await DBHelper.insertOrUpdateCarisma({
-                          'id': isEdit ? carisma['id'] : null,
-                          'persona_id': persona!.id,
-                          'tipo': tipo,
-                        });
-
-                        await _cargarCarismas();
-                        Navigator.pop(context);
-                      },
-                      child: Text(isEdit ? 'Actualizar' : 'Guardar'),
-                    ),
-
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  // =====================
-  // UI
-  // =====================
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Carismas',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-        backgroundColor: const Color(0xFFC62828),
-        foregroundColor: Colors.white,
-        centerTitle: true,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: carismas.isEmpty
-            ? const Center(child: Text('No hay carismas registrados'))
-            : ListView.builder(
-                itemCount: carismas.length,
-                itemBuilder: (_, i) {
-                  final c = carismas[i];
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 6),
-                    child: ListTile(
-                      leading: const Icon(Icons.person),
-                      title: Text(c['nombre_completo']),
-                      subtitle: Text(c['tipo']),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit,
-                                color: Colors.orange),
-                            onPressed: () => _mostrarModal(carisma: c),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete,
-                                color: Colors.red),
-                            onPressed: () async {
-                              await DBHelper.deleteCarisma(c['id']);
-                              _cargarCarismas();
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.black,
-        child: const Icon(Icons.add),
-        onPressed: () => _mostrarModal(),
-      ),
-    );
-  }
-
-  InputDecoration _inputDecoration(String label) {
-    return InputDecoration(
-      labelText: label,
-      filled: true,
-      fillColor: Colors.grey.shade100,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+              ],
+            ),
     );
   }
 }

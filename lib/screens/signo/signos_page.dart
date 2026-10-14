@@ -1,8 +1,11 @@
+import 'package:app_movil_comunidad/db/db_helper.dart';
+import 'package:app_movil_comunidad/models/persona.dart';
+import 'package:app_movil_comunidad/models/signo.dart';
+import 'package:app_movil_comunidad/widgets/ui.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import '../../../db/db_helper.dart';
-import '../../../models/signo.dart';
+import 'package:flutter/services.dart';
 
+/// Signos de la comunidad y las personas responsables de cada uno.
 class SignosPage extends StatefulWidget {
   const SignosPage({super.key});
 
@@ -11,268 +14,242 @@ class SignosPage extends StatefulWidget {
 }
 
 class _SignosPageState extends State<SignosPage> {
-  List<Signo> _signos = [];
+  List<Signo> signos = [];
+  Map<int, List<Map<String, dynamic>>> responsables = {};
+  List<Persona> personas = [];
+  bool loading = true;
 
   @override
   void initState() {
     super.initState();
-    _cargarSignos();
+    _cargar();
   }
 
-  Future<void> _cargarSignos() async {
-    final signos = await DBHelper.obtenerSignos();
+  Future<void> _cargar() async {
+    final s = await DBHelper.obtenerSignos();
+    final r = await DBHelper.getResponsablesSignos();
+    final p = await DBHelper.getPersonas();
+    if (!mounted) return;
     setState(() {
-      _signos = signos;
+      signos = s;
+      responsables = r;
+      personas = p;
+      loading = false;
     });
   }
 
-  void _mostrarFormulario({Signo? signo}) {
-    final _formKey = GlobalKey<FormState>();
-    final _nombre = TextEditingController(text: signo?.nombre ?? '');
-    final _cantidad = TextEditingController(
-      text: signo?.cantidad.toString() ?? '',
-    );
-    final _fechaCompra = TextEditingController(text: signo?.fechaCompra ?? '');
-    final _fechaEntrega = TextEditingController(
-      text: signo?.fechaEntrega ?? '',
-    );
-    final _observacion = TextEditingController(text: signo?.observacion ?? '');
+  Future<void> _formulario({Signo? signo}) async {
+    final formKey = GlobalKey<FormState>();
+    final nombre = TextEditingController(text: signo?.nombre);
+    final cantidad = TextEditingController(text: signo?.cantidad.toString());
+    final compra = TextEditingController(text: signo?.fechaCompra);
+    final entrega = TextEditingController(text: signo?.fechaEntrega);
+    final obs = TextEditingController(text: signo?.observacion);
+    final elegidos = <Persona>[
+      for (final r in responsables[signo?.id] ?? const [])
+        ...personas.where((p) => p.id == r['persona_id']),
+    ];
+    const gap = SizedBox(height: 12);
 
-    Future<void> _seleccionarFecha(TextEditingController controller) async {
-      final fecha = await showDatePicker(
-        context: context,
-        initialDate: DateTime.now(),
-        firstDate: DateTime(2000),
-        lastDate: DateTime.now().add(const Duration(days: 365)),
-      );
-      if (fecha != null) {
-        controller.text = DateFormat('yyyy-MM-dd').format(fecha);
-      }
-    }
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (_) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Form(
-              key: _formKey,
-              child: Wrap(
-                runSpacing: 10,
-                children: [
-                  Center(
-                    child: Text(
-                      signo == null ? 'Agregar Signo' : 'Editar Signo',
-                      style: const TextStyle(
-                        fontFamily: 'Merriweather',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
-                  ),
-                  _campoTexto(_nombre, 'Nombre'),
-                  _campoTexto(
-                    _cantidad,
-                    'Cantidad',
-                    keyboardType: TextInputType.number,
-                  ),
-                  _campoFecha(
-                    _fechaCompra,
-                    'Fecha de Compra',
-                    () => _seleccionarFecha(_fechaCompra),
-                  ),
-                  _campoFecha(
-                    _fechaEntrega,
-                    'Fecha de Entrega',
-                    () => _seleccionarFecha(_fechaEntrega),
-                  ),
-                  _campoTexto(_observacion, 'Observación', requerido: false),
-                  const SizedBox(height: 6),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      icon: Icon(
-                        signo == null ? Icons.add : Icons.save,
-                        size: 18,
-                        color: Colors.white,
-                      ),
-                      label: Text(
-                        signo == null ? 'Agregar' : 'Actualizar',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      onPressed: () async {
-                        if (_formKey.currentState!.validate()) {
-                          final nuevo = Signo(
-                            id: signo?.id,
-                            nombre: _nombre.text,
-                            cantidad: int.tryParse(_cantidad.text) ?? 0,
-                            fechaCompra: _fechaCompra.text,
-                            fechaEntrega: _fechaEntrega.text,
-                            observacion: _observacion.text,
-                          );
-
-                          signo == null
-                              ? await DBHelper.insertarSigno(nuevo)
-                              : await DBHelper.actualizarSigno(nuevo);
-
-                          _cargarSignos();
-                          Navigator.pop(context);
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.redAccent,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 30),
-                ],
-              ),
+    await showAppSheet(
+      context,
+      titulo: signo == null ? 'Nuevo signo' : 'Editar signo',
+      icon: Icons.volunteer_activism_outlined,
+      builder: (ctx, setSheet) => Form(
+        key: formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              controller: nombre,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: appInput('Nombre del signo *', icon: Icons.label_outline),
+              validator: (v) =>
+                  v == null || v.trim().isEmpty ? 'Campo obligatorio' : null,
             ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _campoTexto(
-    TextEditingController controller,
-    String label, {
-    TextInputType keyboardType = TextInputType.text,
-    bool requerido = true,
-  }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(fontSize: 14),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 10,
+            gap,
+            TextFormField(
+              controller: cantidad,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: appInput('Cantidad', icon: Icons.numbers),
+            ),
+            gap,
+            DateField(controller: compra, label: 'Fecha de compra'),
+            gap,
+            DateField(controller: entrega, label: 'Fecha de entrega'),
+            gap,
+            TextFormField(
+              controller: obs,
+              maxLines: 2,
+              decoration: appInput('Observación', icon: Icons.notes),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Responsables',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                TextButton.icon(
+                  icon: const Icon(Icons.person_add_alt, color: kRojo),
+                  label: const Text('Elegir', style: TextStyle(color: kRojo)),
+                  onPressed: () async {
+                    final sel = await seleccionarPersonas(
+                      ctx,
+                      titulo: 'Responsables del signo',
+                      personas: personas,
+                      seleccionadas: elegidos.map((p) => p.id!).toSet(),
+                    );
+                    if (sel != null) {
+                      setSheet(() => elegidos
+                        ..clear()
+                        ..addAll(sel));
+                    }
+                  },
+                ),
+              ],
+            ),
+            if (elegidos.isEmpty)
+              Text(
+                'Sin responsables asignados',
+                style: TextStyle(color: Colors.grey.shade600),
+              )
+            else
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: elegidos
+                    .map(
+                      (p) => PersonaChip(
+                        nombre: p.nombreCompleto,
+                        onDeleted: () => setSheet(() => elegidos.remove(p)),
+                      ),
+                    )
+                    .toList(),
+              ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              style: primaryButton(),
+              icon: const Icon(Icons.save),
+              label: const Text('Guardar'),
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
+                String? vacio(TextEditingController c) =>
+                    c.text.trim().isEmpty ? null : c.text.trim();
+                final nuevo = Signo(
+                  id: signo?.id,
+                  nombre: nombre.text.trim(),
+                  cantidad: int.tryParse(cantidad.text) ?? 0,
+                  fechaCompra: vacio(compra),
+                  fechaEntrega: vacio(entrega),
+                  observacion: vacio(obs),
+                );
+                int id;
+                if (signo == null) {
+                  id = await DBHelper.insertarSigno(nuevo);
+                } else {
+                  await DBHelper.actualizarSigno(nuevo);
+                  id = signo.id!;
+                }
+                await DBHelper.setResponsablesSigno(
+                  id,
+                  elegidos.map((p) => p.id!).toList(),
+                );
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+            ),
+          ],
         ),
       ),
-      validator:
-          requerido
-              ? (v) => v == null || v.isEmpty ? 'Campo obligatorio' : null
-              : null,
     );
+    await _cargar();
   }
 
-  Widget _campoFecha(
-    TextEditingController controller,
-    String label,
-    VoidCallback onTap,
-  ) {
-    return TextFormField(
-      controller: controller,
-      readOnly: true,
-      onTap: onTap,
-      decoration: InputDecoration(
-        labelText: label,
-        suffixIcon: const Icon(
-          Icons.calendar_today,
-          size: 18,
-          color: Colors.redAccent,
+  Future<void> _eliminar(Signo s) async {
+    final ok = await confirmar(
+      context,
+      titulo: 'Eliminar signo',
+      mensaje: '¿Eliminar "${s.nombre}"?',
+    );
+    if (!ok) return;
+    await DBHelper.eliminarSigno(s.id!);
+    await _cargar();
+  }
+
+  Widget _card(Signo s) {
+    final resp = responsables[s.id] ?? const [];
+    final fechas = [
+      if (s.fechaCompra != null) 'Compra: ${s.fechaCompra}',
+      if (s.fechaEntrega != null) 'Entrega: ${s.fechaEntrega}',
+    ];
+    return SectionCard(
+      title: s.nombre,
+      actions: [
+        Chip(
+          label: Text('x${s.cantidad}'),
+          visualDensity: VisualDensity.compact,
+          side: BorderSide.none,
         ),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 10,
+        IconButton(
+          icon: const Icon(Icons.edit_outlined),
+          onPressed: () => _formulario(signo: s),
         ),
+        IconButton(
+          icon: const Icon(Icons.delete_outline),
+          onPressed: () => _eliminar(s),
+        ),
+      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (fechas.isNotEmpty)
+            Text(
+              fechas.join('  ·  '),
+              style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+            ),
+          if (s.observacion != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(s.observacion!, style: const TextStyle(fontSize: 13)),
+            ),
+          const SizedBox(height: 8),
+          resp.isEmpty
+              ? Text(
+                  'Sin responsables',
+                  style: TextStyle(color: Colors.orange.shade800, fontSize: 13),
+                )
+              : Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: resp
+                      .map((r) => PersonaChip(nombre: r['nombre_completo']))
+                      .toList(),
+                ),
+        ],
       ),
-      validator: (v) => v == null || v.isEmpty ? 'Campo obligatorio' : null,
     );
-  }
-
-  void _eliminarSigno(int id) async {
-    await DBHelper.eliminarSigno(id);
-    _cargarSignos();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Signos',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-        backgroundColor: Color(0xFFC62828),
-        foregroundColor: Colors.white,
-        elevation: 4,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      body:
-          _signos.isEmpty
-              ? const Center(child: Text('No hay signos registrados.'))
-              : ListView.separated(
-                padding: const EdgeInsets.all(12),
-                separatorBuilder: (_, _) => const SizedBox(height: 8),
-                itemCount: _signos.length,
-                itemBuilder: (context, index) {
-                  final signo = _signos[index];
-                  return Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    elevation: 2,
-                    child: ListTile(
-                      title: Text(
-                        signo.nombre,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-                      subtitle: Text('Cantidad: ${signo.cantidad}'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.edit,
-                              color: Colors.orange,
-                              size: 20,
-                            ),
-                            onPressed: () => _mostrarFormulario(signo: signo),
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.delete,
-                              color: Colors.red,
-                              size: 20,
-                            ),
-                            onPressed: () => _eliminarSigno(signo.id!),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _mostrarFormulario(),
-        backgroundColor: Colors.black,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
+    return AppPage(
+      title: 'Signos',
+      fab: AppFab(label: 'Signo', icon: Icons.add, onPressed: () => _formulario()),
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : signos.isEmpty
+          ? const EmptyState(
+              icon: Icons.volunteer_activism_outlined,
+              text: 'No hay signos registrados',
+              hint: 'Registra cada signo y asigna a sus responsables.',
+            )
+          : ListView(
+              padding: const EdgeInsets.only(top: 10, bottom: 90),
+              children: signos.map(_card).toList(),
+            ),
     );
   }
 }

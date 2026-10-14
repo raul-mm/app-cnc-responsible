@@ -1,8 +1,8 @@
-// MODELO PERSONA ACTUALIZADO
 class Persona {
   int? id;
   String nombres;
   String apellidos;
+  String? sexo; // 'M' | 'F'
   String? fechaNacimiento;
   String? documento;
   String? telefono;
@@ -17,6 +17,7 @@ class Persona {
     this.id,
     required this.nombres,
     required this.apellidos,
+    this.sexo,
     this.fechaNacimiento,
     this.documento,
     this.telefono,
@@ -28,11 +29,14 @@ class Persona {
     this.numeroHijos,
   });
 
+  String get nombreCompleto => '$nombres $apellidos'.trim();
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'nombres': nombres,
       'apellidos': apellidos,
+      'sexo': sexo,
       'fechaNacimiento': fechaNacimiento,
       'documento': documento,
       'telefono': telefono,
@@ -48,8 +52,9 @@ class Persona {
   factory Persona.fromMap(Map<String, dynamic> map) {
     return Persona(
       id: map['id'],
-      nombres: map['nombres'],
-      apellidos: map['apellidos'],
+      nombres: map['nombres'] ?? '',
+      apellidos: map['apellidos'] ?? '',
+      sexo: map['sexo'],
       fechaNacimiento: map['fechaNacimiento'],
       documento: map['documento'],
       telefono: map['telefono'],
