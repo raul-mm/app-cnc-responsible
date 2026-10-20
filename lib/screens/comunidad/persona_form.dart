@@ -1,3 +1,4 @@
+import 'package:app_movil_comunidad/db/db_helper.dart';
 import 'package:app_movil_comunidad/models/persona.dart';
 import 'package:app_movil_comunidad/utils/catalogos.dart';
 import 'package:app_movil_comunidad/widgets/ui.dart';
@@ -48,6 +49,31 @@ class _PersonaFormState extends State<PersonaForm> {
   late int? conyugeId = widget.persona?.conyugeId;
   bool guardando = false;
 
+  // Servicios: salmista / didáscalo (tabla servicios) y catequista (equipo).
+  Set<String> servicios = {};
+  bool catequista = false;
+  int? equipoCatequistaId;
+  List<Map<String, dynamic>> equiposCatequistas = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarServicios();
+  }
+
+  Future<void> _cargarServicios() async {
+    final equipos = await DBHelper.getEquiposCatequistas();
+    final id = widget.persona?.id;
+    final actual = id == null ? null : await DBHelper.getServiciosPersona(id);
+    if (!mounted) return;
+    setState(() {
+      equiposCatequistas = equipos;
+      servicios = actual?.tipos ?? {};
+      equipoCatequistaId = actual?.equipoCatequistaId;
+      catequista = equipoCatequistaId != null;
+    });
+  }
+
   /// Candidatos a cónyuge: otras personas que no estén casadas con alguien más.
   List<Persona> get _candidatosConyuge {
     final yo = widget.persona?.id;
@@ -59,6 +85,10 @@ class _PersonaFormState extends State<PersonaForm> {
 
   Future<void> _save() async {
     if (!formKey.currentState!.validate()) return;
+    if (catequista && equipoCatequistaId == null) {
+      toast(context, 'Elige el equipo de catequistas');
+      return;
+    }
     String? vacio(TextEditingController c) =>
         c.text.trim().isEmpty ? null : c.text.trim();
     final casado = estadoCivil == 'Casado';
@@ -81,6 +111,12 @@ class _PersonaFormState extends State<PersonaForm> {
 
     setState(() => guardando = true);
     await widget.onSave(persona, widget.persona != null);
+    // insertPersona asigna el id a `persona`.
+    await DBHelper.setServiciosPersona(
+      persona.id!,
+      tipos: servicios,
+      equipoCatequistaId: catequista ? equipoCatequistaId : null,
+    );
     if (mounted) setState(() => guardando = false);
   }
 
@@ -159,13 +195,21 @@ class _PersonaFormState extends State<PersonaForm> {
           TextFormField(
             controller: documento,
             keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(11),
+            ],
             decoration: appInput('Documento (DNI)', icon: Icons.credit_card),
           ),
           const SizedBox(height: 18),
           const _Titulo('Contacto'),
           TextFormField(
             controller: telefono,
-            keyboardType: TextInputType.phone,
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(9),
+            ],
             decoration: appInput('Teléfono', icon: Icons.phone_outlined),
           ),
           _gap(),
@@ -231,6 +275,64 @@ class _PersonaFormState extends State<PersonaForm> {
               icon: Icons.child_care_outlined,
             ),
           ),
+          const SizedBox(height: 18),
+          const _Titulo('Servicios en la comunidad'),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              FilterChip(
+                avatar: const Icon(Icons.school_outlined, size: 18),
+                label: const Text('Catequista'),
+                selected: catequista,
+                onSelected: (v) => setState(() => catequista = v),
+              ),
+              for (final (tipo, label, icon) in const [
+                ('Salmistas', 'Salmista', Icons.music_note_outlined),
+                ('Lectores', 'Lector', Icons.record_voice_over_outlined),
+                ('Ostiarios', 'Ostiario', Icons.door_front_door_outlined),
+                ('Didáscalos', 'Didáscalo', Icons.menu_book_outlined),
+              ])
+                FilterChip(
+                  avatar: Icon(icon, size: 18),
+                  label: Text(label),
+                  selected: servicios.contains(tipo),
+                  onSelected: (v) => setState(
+                    () => v ? servicios.add(tipo) : servicios.remove(tipo),
+                  ),
+                ),
+            ],
+          ),
+          if (catequista) ...[
+            _gap(),
+            equiposCatequistas.isEmpty
+                ? Text(
+                    'Primero crea un equipo en Catequistas para asignarlo.',
+                    style: TextStyle(color: Colors.grey.shade600),
+                  )
+                : DropdownButtonFormField<int>(
+                    initialValue:
+                        equiposCatequistas.any(
+                          (e) => e['id'] == equipoCatequistaId,
+                        )
+                        ? equipoCatequistaId
+                        : null,
+                    isExpanded: true,
+                    decoration: appInput(
+                      'Equipo de catequistas',
+                      icon: Icons.groups_outlined,
+                    ),
+                    items: equiposCatequistas
+                        .map(
+                          (e) => DropdownMenuItem<int>(
+                            value: e['id'] as int,
+                            child: Text(e['nombre'] as String),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => equipoCatequistaId = v),
+                  ),
+          ],
           const SizedBox(height: 24),
           ElevatedButton.icon(
             style: primaryButton(),

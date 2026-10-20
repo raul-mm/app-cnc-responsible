@@ -5,10 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 class InfoPage extends StatelessWidget {
   const InfoPage({super.key});
 
-  static final _sitioWeb = Uri.parse('https://neocatechumenaleiter.org/');
-
-  Future<void> _abrirSitio(BuildContext context) async {
-    final ok = await launchUrl(_sitioWeb, mode: LaunchMode.externalApplication);
+  Future<void> _abrirSitio(BuildContext context, Uri uri) async {
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && context.mounted) {
       toast(context, 'No se pudo abrir el sitio web');
     }
@@ -64,7 +62,30 @@ class InfoPage extends StatelessWidget {
                 ),
                 icon: const Icon(Icons.language),
                 label: const Text('neocatechumenaleiter.org'),
-                onPressed: () => _abrirSitio(context),
+                onPressed: () => _abrirSitio(
+                  context,
+                  Uri.parse('https://neocatechumenaleiter.org/'),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: kRojo,
+                  side: const BorderSide(color: kRojo),
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(Icons.book),
+                label: const Text('App Resucito'),
+                onPressed: () => _abrirSitio(
+                  context,
+                  Uri.parse('https://app.resucito.es/home?tag=white'),
+                ),
               ),
             ),
           ],

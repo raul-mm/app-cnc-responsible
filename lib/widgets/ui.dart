@@ -116,12 +116,7 @@ class Avatar extends StatelessWidget {
   final Color color;
   final double radius;
 
-  const Avatar(
-    this.nombre, {
-    super.key,
-    this.color = kRojo,
-    this.radius = 20,
-  });
+  const Avatar(this.nombre, {super.key, this.color = kRojo, this.radius = 20});
 
   @override
   Widget build(BuildContext context) {

@@ -9,19 +9,19 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 /// Genera los reportes oficiales rellenando las plantillas de
 /// `assets/reports` (un .xlsx y un .docx son archivos zip con XML dentro).
 class Reportes {
   static const _plantillaFicha = 'assets/reports/ficha_comunidad.xlsx';
-  static const _plantillaConvivencia = 'assets/reports/formato_convivencias.docx';
+  static const _plantillaConvivencia =
+      'assets/reports/formato_convivencias.docx';
 
   // ===========================================================
   // FICHA DE LA COMUNIDAD (Excel)
   // ===========================================================
 
-  static Future<void> exportarFicha() async {
+  static Future<String> exportarFicha() async {
     final d = await _Datos.cargar();
     final c = d.comunidad;
     final celdas = <String, Object?>{};
@@ -31,9 +31,10 @@ class Reportes {
       celdas['C12'] = c.parroquia;
       celdas['C16'] = _ordinal(c.numero);
       celdas['C17'] = _serialExcel(c.fechaNacimiento);
-      celdas['C18'] = [c.catequistaComunidad, c.catequistaParroquia]
-          .where((s) => s.isNotEmpty)
-          .join(' - ');
+      celdas['C18'] = [
+        c.catequistaComunidad,
+        c.catequistaParroquia,
+      ].where((s) => s.isNotEmpty).join(' - ');
       celdas['C19'] = c.catequista;
       celdas['C29'] = _pasoFicha(c.pasoActual);
       celdas['C30'] = _serialExcel(c.fechaPaso);
@@ -81,12 +82,14 @@ class Reportes {
     lista(100, 107, d.carisma('Familia en misión'));
     lista(110, 114, d.carisma('Seminarista'));
     persona(118, d.responsableServicio('Salmistas'));
-    persona(120, d.carisma('Lector').firstOrNull);
-    persona(122, d.carisma('Ostiario').firstOrNull);
+    persona(120, d.responsableServicio('Lectores'));
+    persona(122, d.responsableServicio('Ostiarios'));
     persona(124, d.responsableServicio('Didáscalos'));
 
     celdas['D127'] = d.cargo('Responsable').firstOrNull?.nombreCompleto;
-    celdas['D128'] = _serialExcel(DateFormat('yyyy-MM-dd').format(DateTime.now()));
+    celdas['D128'] = _serialExcel(
+      DateFormat('yyyy-MM-dd').format(DateTime.now()),
+    );
 
     final bytes = await _editarZip(_plantillaFicha, {
       'xl/worksheets/sheet1.xml': (xml) {
@@ -101,17 +104,40 @@ class Reportes {
               '<calcPr fullCalcOnLoad="1"/></workbook>',
             ),
     });
-    await _compartir(bytes, 'Ficha Comunidad ${c?.numero ?? ''}.xlsx'.trim());
+    return _descargar(bytes, 'Ficha Comunidad ${c?.numero ?? ''}.xlsx'.trim());
   }
 
   static const _ordinales = [
-    'Primera', 'Segunda', 'Tercera', 'Cuarta', 'Quinta', 'Sexta', 'Séptima',
-    'Octava', 'Novena', 'Décima', 'Undécima', 'Duodécima', 'Décimo tercera',
-    'Décimo cuarta', 'Décimo quinta', 'Décimo sexta', 'Décimo séptima',
-    'Décimo octava', 'Décimo novena', 'Vigésima', 'Vigésimo primera',
-    'Vigésimo segunda', 'Vigésimo tercera', 'Vigésimo cuarta',
-    'Vigésimo quinta', 'Vigésimo sexta', 'Vigésimo séptima',
-    'Vigésimo octava', 'Vigésimo novena', 'Trigésima',
+    'Primera',
+    'Segunda',
+    'Tercera',
+    'Cuarta',
+    'Quinta',
+    'Sexta',
+    'Séptima',
+    'Octava',
+    'Novena',
+    'Décima',
+    'Undécima',
+    'Duodécima',
+    'Décimo tercera',
+    'Décimo cuarta',
+    'Décimo quinta',
+    'Décimo sexta',
+    'Décimo séptima',
+    'Décimo octava',
+    'Décimo novena',
+    'Vigésima',
+    'Vigésimo primera',
+    'Vigésimo segunda',
+    'Vigésimo tercera',
+    'Vigésimo cuarta',
+    'Vigésimo quinta',
+    'Vigésimo sexta',
+    'Vigésimo séptima',
+    'Vigésimo octava',
+    'Vigésimo novena',
+    'Trigésima',
   ];
 
   /// La plantilla espera el número de comunidad como en su lista desplegable.
@@ -141,9 +167,11 @@ class Reportes {
   static int? _serialExcel(String fecha) {
     final f = DateTime.tryParse(fecha);
     if (f == null) return null;
-    return DateTime.utc(f.year, f.month, f.day)
-        .difference(DateTime.utc(1899, 12, 30))
-        .inDays;
+    return DateTime.utc(
+      f.year,
+      f.month,
+      f.day,
+    ).difference(DateTime.utc(1899, 12, 30)).inDays;
   }
 
   /// Escribe un valor en la celda conservando su estilo.
@@ -193,7 +221,7 @@ class Reportes {
   // FORMATO DE CONVIVENCIAS (Word)
   // ===========================================================
 
-  static Future<void> exportarConvivencia({
+  static Future<String> exportarConvivencia({
     required String convivencia,
     required String fecha,
   }) async {
@@ -206,8 +234,14 @@ class Reportes {
     final mujeresMen = d.solos('F', menores: true).length;
     final hombres = d.solos('M', menores: false).length;
     final hombresMen = d.solos('M', menores: true).length;
-    final total = presb + d.matrimonios * 2 + mujeres + mujeresMen +
-        hombres + hombresMen + semin;
+    final total =
+        presb +
+        d.matrimonios * 2 +
+        mujeres +
+        mujeresMen +
+        hombres +
+        hombresMen +
+        semin;
     String n(int v) => v == 0 ? '' : '$v';
 
     // Párrafo -> {índice de <w:t> dentro del párrafo: texto}.
@@ -216,7 +250,13 @@ class Reportes {
       4: {1: c?.numero ?? ''},
       5: {1: convivencia},
       6: {1: fecha},
-      7: {1: d.presbiteros.firstOrNull?.nombreCompleto ?? '', 2: '', 3: '', 4: '', 5: ''},
+      7: {
+        1: d.presbiteros.firstOrNull?.nombreCompleto ?? '',
+        2: '',
+        3: '',
+        4: '',
+        5: '',
+      },
       8: {2: resp?.nombreCompleto ?? ''},
       10: {2: resp?.correo ?? ''},
       11: {1: resp?.telefono ?? ''},
@@ -255,10 +295,12 @@ class Reportes {
         );
       },
     });
-    await _compartir(
+    return _descargar(
       bytes,
-      'Convivencia ${c?.numero ?? ''} - $convivencia.docx'
-          .replaceAll(RegExp(r'[\\/:*?"<>|]'), '-'),
+      'Convivencia ${c?.numero ?? ''} - $convivencia.docx'.replaceAll(
+        RegExp(r'[\\/:*?"<>|]'),
+        '-',
+      ),
     );
   }
 
@@ -285,11 +327,25 @@ class Reportes {
     return ZipEncoder().encode(salida)!;
   }
 
-  static Future<void> _compartir(List<int> bytes, String nombre) async {
-    final dir = await getTemporaryDirectory();
+  /// Guarda el archivo en Descargas (Android) o en Documentos (iOS, visible
+  /// en la app Archivos) y devuelve la ruta.
+  static Future<String> _descargar(List<int> bytes, String nombre) async {
+    if (Platform.isAndroid) {
+      try {
+        final file = File(p.join('/storage/emulated/0/Download', nombre));
+        await file.writeAsBytes(bytes, flush: true);
+        return file.path;
+      } on FileSystemException {
+        // Sin acceso a Descargas: se usa la carpeta externa de la app.
+      }
+    }
+    final dir = Platform.isAndroid
+        ? (await getExternalStorageDirectory() ??
+              await getApplicationDocumentsDirectory())
+        : await getApplicationDocumentsDirectory();
     final file = File(p.join(dir.path, nombre));
     await file.writeAsBytes(bytes, flush: true);
-    await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
+    return file.path;
   }
 
   static String _esc(String s) => s
@@ -330,9 +386,9 @@ class _Datos {
       ]);
     }
     Future<Persona?> resp(String tipo) async {
-      final m = (await DBHelper.getServicio(tipo))
-          .where((s) => s['es_responsable'] == 1)
-          .firstOrNull;
+      final m = (await DBHelper.getServicio(
+        tipo,
+      )).where((s) => s['es_responsable'] == 1).firstOrNull;
       return m == null ? null : porId[m['persona_id']];
     }
 
@@ -344,14 +400,15 @@ class _Datos {
       equipos,
       {
         'Salmistas': await resp('Salmistas'),
+        'Lectores': await resp('Lectores'),
+        'Ostiarios': await resp('Ostiarios'),
         'Didáscalos': await resp('Didáscalos'),
       },
     );
   }
 
-  Iterable<Persona> _ids(Iterable<Map<String, dynamic>> filas) => filas
-      .map((f) => porId[f['persona_id']])
-      .whereType<Persona>();
+  Iterable<Persona> _ids(Iterable<Map<String, dynamic>> filas) =>
+      filas.map((f) => porId[f['persona_id']]).whereType<Persona>();
 
   Iterable<Persona> cargo(String cargo) =>
       _ids(equipo.where((m) => m['cargo'] == cargo));
@@ -386,7 +443,8 @@ class _Datos {
     if (n == null) return false;
     final hoy = DateTime.now();
     var edad = hoy.year - n.year;
-    if (hoy.month < n.month || (hoy.month == n.month && hoy.day < n.day)) edad--;
+    if (hoy.month < n.month || (hoy.month == n.month && hoy.day < n.day))
+      edad--;
     return edad < 18;
   }
 }

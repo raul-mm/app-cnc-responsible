@@ -16,17 +16,42 @@ class _DashboardPageState extends State<DashboardPage>
   Comunidad? comunidad;
   Map<String, int> resumen = {};
 
-  // Orden del flujo: primero personas, luego todo lo que se arma con ellas.
+  // Personas se abre desde la cabecera; catequista, salmista y didáscalo
+  // también se marcan en la ficha de cada persona.
   static const items = [
-    _DashboardItem('Personas', Icons.people_alt_outlined, 'comunidad', 'personas'),
-    _DashboardItem('Equipo', Icons.workspace_premium_outlined, 'equipo', 'equipo'),
-    _DashboardItem('Catequistas', Icons.school_outlined, 'catequista', 'catequistas'),
+    _DashboardItem(
+      'Equipo',
+      Icons.workspace_premium_outlined,
+      'equipo',
+      'equipo',
+    ),
+    _DashboardItem(
+      'Catequistas',
+      Icons.school_outlined,
+      'catequista',
+      'catequistas',
+    ),
     _DashboardItem('Grupos', Icons.diversity_3_outlined, 'grupos', 'grupos'),
-    _DashboardItem('Signos', Icons.volunteer_activism_outlined, 'signos', 'signos'),
-    _DashboardItem('Carismas', Icons.auto_awesome_outlined, 'carismas', 'carismas'),
-    _DashboardItem('Salmistas', Icons.music_note_outlined, 'salmistas', 'salmistas'),
-    _DashboardItem('Didáscalos', Icons.menu_book_outlined, 'didascalos', 'didascalos'),
+    _DashboardItem(
+      'Servicios',
+      Icons.music_note_outlined,
+      _servicios,
+      'servicios',
+    ),
+    _DashboardItem(
+      'Signos',
+      Icons.volunteer_activism_outlined,
+      'signos',
+      'signos',
+    ),
+    _DashboardItem(
+      'Consolidado',
+      Icons.assessment_outlined,
+      'carismas',
+      'carismas',
+    ),
   ];
+  static const _servicios = 'servicios';
 
   @override
   void initState() {
@@ -49,6 +74,51 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   Future<void> _abrir(String ruta) async {
+    if (ruta == _servicios) {
+      final elegida = await showAppSheet<String>(
+        context,
+        titulo: 'Servicios',
+        icon: Icons.music_note_outlined,
+        builder: (ctx, _) => Column(
+          children: [
+            for (final (r, titulo, clave, icon) in const [
+              (
+                'salmistas',
+                'Salmistas',
+                'salmistas',
+                Icons.music_note_outlined,
+              ),
+              (
+                'lectores',
+                'Lectores',
+                'lectores',
+                Icons.record_voice_over_outlined,
+              ),
+              (
+                'ostiarios',
+                'Ostiarios',
+                'ostiarios',
+                Icons.door_front_door_outlined,
+              ),
+              (
+                'didascalos',
+                'Didáscalos',
+                'didascalos',
+                Icons.menu_book_outlined,
+              ),
+            ])
+              ListTile(
+                leading: Icon(icon, color: kRojo),
+                title: Text(titulo),
+                trailing: Text('${resumen[clave] ?? 0}'),
+                onTap: () => Navigator.pop(ctx, r),
+              ),
+          ],
+        ),
+      );
+      if (elegida == null || !mounted) return;
+      ruta = elegida;
+    }
     await Navigator.pushNamed(context, ruta);
     _cargar();
   }
@@ -61,46 +131,72 @@ class _DashboardPageState extends State<DashboardPage>
 
   Widget _cabecera() {
     final c = comunidad;
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [kRojo, Color(0xFFE53935)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            c == null ? 'Sin comunidad configurada' : 'Comunidad ${c.numero}',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+    return GestureDetector(
+      onTap: () => _abrir('comunidad'),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [kRojo, Color(0xFFE53935)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          if (c != null) ...[
-            const SizedBox(height: 2),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
-              '${c.tipoParroquia} ${c.parroquia}',
-              style: const TextStyle(color: Colors.white70),
+              c == null ? 'Sin comunidad configurada' : 'Comunidad ${c.numero}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
+            if (c != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                '${c.tipoParroquia} ${c.parroquia}',
+                style: const TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  if (c.pasoActual.isNotEmpty)
+                    _pill(Icons.flag_outlined, c.pasoActual),
+                  _pill(
+                    Icons.people_outline,
+                    '${resumen['personas'] ?? 0} hermanos',
+                  ),
+                  _pill(
+                    Icons.favorite_border,
+                    '${resumen['matrimonios'] ?? 0} matrimonios',
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 12),
+            const Row(
               children: [
-                if (c.pasoActual.isNotEmpty) _pill(Icons.flag_outlined, c.pasoActual),
-                _pill(Icons.people_outline, '${resumen['personas'] ?? 0} hermanos'),
-                _pill(Icons.favorite_border, '${resumen['matrimonios'] ?? 0} matrimonios'),
+                Icon(Icons.people_alt_outlined, color: Colors.white, size: 18),
+                SizedBox(width: 6),
+                Text(
+                  'Ver y registrar personas',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Spacer(),
+                Icon(Icons.chevron_right, color: Colors.white),
               ],
             ),
           ],
-        ],
+        ),
       ),
     );
   }
@@ -139,14 +235,20 @@ class _DashboardPageState extends State<DashboardPage>
                         tag: 'logo-virgen',
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(50),
-                          child: Image.asset('assets/logos/logo-cnc.png', height: 44),
+                          child: Image.asset(
+                            'assets/logos/logo-cnc.png',
+                            height: 44,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       const Expanded(
                         child: Text(
                           'Camino Neocatecumenal',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
@@ -167,7 +269,11 @@ class _DashboardPageState extends State<DashboardPage>
                   itemBuilder: (context, index) {
                     final animation = CurvedAnimation(
                       parent: _controller,
-                      curve: Interval(0.08 * index, 1.0, curve: Curves.easeOutBack),
+                      curve: Interval(
+                        0.08 * index,
+                        1.0,
+                        curve: Curves.easeOutBack,
+                      ),
                     );
                     final item = items[index];
                     return FadeTransition(
@@ -206,7 +312,11 @@ class _DashboardCard extends StatelessWidget {
   final int? total;
   final VoidCallback onTap;
 
-  const _DashboardCard({required this.item, required this.total, required this.onTap});
+  const _DashboardCard({
+    required this.item,
+    required this.total,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -235,14 +345,20 @@ class _DashboardCard extends StatelessWidget {
                   const Spacer(),
                   Text(
                     '${total ?? '–'}',
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
               const Spacer(),
               Text(
                 item.title,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),

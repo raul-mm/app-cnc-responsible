@@ -48,7 +48,10 @@ class _ServicioPageState extends State<ServicioPage> {
     );
     if (sel == null || sel.isEmpty) return;
     final sinResponsable = !miembros.any(_esResponsable);
-    await DBHelper.agregarAServicio(widget.tipo, sel.map((p) => p.id!).toList());
+    await DBHelper.agregarAServicio(
+      widget.tipo,
+      sel.map((p) => p.id!).toList(),
+    );
     // El primero que se agrega queda como responsable si no hay ninguno.
     if (sinResponsable && sel.length == 1 && miembros.isEmpty) {
       await DBHelper.setResponsableServicio(widget.tipo, sel.first.id);
@@ -69,7 +72,9 @@ class _ServicioPageState extends State<ServicioPage> {
               esResp ? Icons.star_border : Icons.star,
               color: kRojo,
             ),
-            title: Text(esResp ? 'Quitar como responsable' : 'Hacer responsable'),
+            title: Text(
+              esResp ? 'Quitar como responsable' : 'Hacer responsable',
+            ),
             onTap: () => Navigator.pop(ctx, 'responsable'),
           ),
           ListTile(

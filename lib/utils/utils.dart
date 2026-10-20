@@ -6,8 +6,8 @@ class Utils {
       return value;
     }
   }
-    
- static bool isNullEmptyOrFalse(dynamic o) {
+
+  static bool isNullEmptyOrFalse(dynamic o) {
     if (o is Map<String, dynamic> || o is List<dynamic>) {
       return o == null || o.length == 0;
     }

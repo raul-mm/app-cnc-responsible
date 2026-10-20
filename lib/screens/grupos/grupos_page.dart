@@ -83,8 +83,10 @@ class _GruposTipoViewState extends State<_GruposTipoView>
   List<Persona> get _sinGrupo =>
       personas.where((p) => !asignacion.containsKey(p.id)).toList();
 
-  String _nombreGrupo(int id) =>
-      grupos.firstWhere((g) => g['id'] == id, orElse: () => {'nombre': '?'})['nombre'];
+  String _nombreGrupo(int id) => grupos.firstWhere(
+    (g) => g['id'] == id,
+    orElse: () => {'nombre': '?'},
+  )['nombre'];
 
   // ---------------------------------------------------------------
   // Acciones
@@ -132,7 +134,9 @@ class _GruposTipoViewState extends State<_GruposTipoView>
       if (vistos.contains(p.id)) continue;
       final unidad = [p.id!];
       vistos.add(p.id!);
-      if (p.conyugeId != null && ids.contains(p.conyugeId) && !vistos.contains(p.conyugeId)) {
+      if (p.conyugeId != null &&
+          ids.contains(p.conyugeId) &&
+          !vistos.contains(p.conyugeId)) {
         unidad.add(p.conyugeId!);
         vistos.add(p.conyugeId!);
       }
@@ -151,7 +155,8 @@ class _GruposTipoViewState extends State<_GruposTipoView>
 
     await DBHelper.guardarDistribucion(tipo, dist);
     await _cargar();
-    if (mounted) toast(context, 'Personas repartidas en ${grupos.length} grupos');
+    if (mounted)
+      toast(context, 'Personas repartidas en ${grupos.length} grupos');
   }
 
   Future<void> _editarMiembros(Map<String, dynamic> g) async {
@@ -173,7 +178,11 @@ class _GruposTipoViewState extends State<_GruposTipoView>
     for (final pid in actuales.difference(nuevos)) {
       await DBHelper.quitarDeGrupo(tipo, pid);
     }
-    await DBHelper.asignarAGrupo(id, tipo, nuevos.difference(actuales).toList());
+    await DBHelper.asignarAGrupo(
+      id,
+      tipo,
+      nuevos.difference(actuales).toList(),
+    );
     await _cargar();
   }
 
@@ -192,7 +201,11 @@ class _GruposTipoViewState extends State<_GruposTipoView>
                 g['id'] == actual ? Icons.check_circle : Icons.arrow_forward,
                 color: kRojo,
               ),
-              title: Text(g['id'] == actual ? '${g['nombre']} (actual)' : 'Mover a ${g['nombre']}'),
+              title: Text(
+                g['id'] == actual
+                    ? '${g['nombre']} (actual)'
+                    : 'Mover a ${g['nombre']}',
+              ),
               onTap: () => Navigator.pop(ctx, g['id'] as int),
             ),
           if (actual != null)
@@ -309,7 +322,10 @@ class _GruposTipoViewState extends State<_GruposTipoView>
             onSelected: _menuGeneral,
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'pdf', child: Text('Exportar PDF')),
-              PopupMenuItem(value: 'borrar', child: Text('Eliminar todos los grupos')),
+              PopupMenuItem(
+                value: 'borrar',
+                child: Text('Eliminar todos los grupos'),
+              ),
             ],
           ),
         ],
@@ -369,7 +385,10 @@ class _GruposTipoViewState extends State<_GruposTipoView>
         runSpacing: 6,
         children: [
           for (final p in lista)
-            PersonaChip(nombre: p.nombreCompleto, onTap: () => _opcionesPersona(p)),
+            PersonaChip(
+              nombre: p.nombreCompleto,
+              onTap: () => _opcionesPersona(p),
+            ),
           ActionChip(
             avatar: const Icon(Icons.add, size: 18, color: kRojo),
             label: const Text('Agregar'),
@@ -400,7 +419,8 @@ class _GruposTipoViewState extends State<_GruposTipoView>
             EmptyState(
               icon: Icons.diversity_3_outlined,
               text: 'No hay grupos de $tipo',
-              hint: 'Crea los grupos y luego repártelos automáticamente '
+              hint:
+                  'Crea los grupos y luego repártelos automáticamente '
                   '(los matrimonios quedan juntos) o agrega personas a mano.',
             ),
           ...grupos.map(_grupoCard),

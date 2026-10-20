@@ -27,7 +27,9 @@ class _ComunidadFormState extends State<ComunidadForm> {
   late final _fechaNacimiento = TextEditingController(
     text: widget.inicial?.fechaNacimiento,
   );
-  late final _parroquia = TextEditingController(text: widget.inicial?.parroquia);
+  late final _parroquia = TextEditingController(
+    text: widget.inicial?.parroquia,
+  );
   late final _catequista = TextEditingController(
     text: widget.inicial?.catequista,
   );
@@ -37,7 +39,9 @@ class _ComunidadFormState extends State<ComunidadForm> {
   late final _catequistaParroquia = TextEditingController(
     text: widget.inicial?.catequistaParroquia,
   );
-  late final _fechaPaso = TextEditingController(text: widget.inicial?.fechaPaso);
+  late final _fechaPaso = TextEditingController(
+    text: widget.inicial?.fechaPaso,
+  );
 
   late String _tipoParroquia = widget.inicial?.tipoParroquia ?? 'Parroquia';
   late String? _paso = (widget.inicial?.pasoActual.isNotEmpty ?? false)
@@ -71,7 +75,10 @@ class _ComunidadFormState extends State<ComunidadForm> {
   @override
   Widget build(BuildContext context) {
     // Conserva un paso escrito a mano en versiones anteriores
-    final pasos = [...pasosCamino, if (_paso != null && !pasosCamino.contains(_paso)) _paso!];
+    final pasos = [
+      ...pasosCamino,
+      if (_paso != null && !pasosCamino.contains(_paso)) _paso!,
+    ];
     const gap = SizedBox(height: 12);
 
     return Form(
@@ -85,18 +92,26 @@ class _ComunidadFormState extends State<ComunidadForm> {
               children: [
                 DropdownButtonFormField<String>(
                   initialValue: _numero.text.isEmpty ? null : _numero.text,
-                  decoration: appInput('Número de comunidad *', icon: Icons.tag),
+                  decoration: appInput(
+                    'Número de comunidad *',
+                    icon: Icons.tag,
+                  ),
                   menuMaxHeight: 320,
-                  items: [
-                    for (var i = 1; i <= 30; i++) '$i',
-                    // Conserva un número fuera de rango guardado antes
-                    if (_numero.text.isNotEmpty &&
-                        !List.generate(30, (i) => '${i + 1}')
-                            .contains(_numero.text))
-                      _numero.text,
-                  ]
-                      .map((n) => DropdownMenuItem(value: n, child: Text(n)))
-                      .toList(),
+                  items:
+                      [
+                            for (var i = 1; i <= 30; i++) '$i',
+                            // Conserva un número fuera de rango guardado antes
+                            if (_numero.text.isNotEmpty &&
+                                !List.generate(
+                                  30,
+                                  (i) => '${i + 1}',
+                                ).contains(_numero.text))
+                              _numero.text,
+                          ]
+                          .map(
+                            (n) => DropdownMenuItem(value: n, child: Text(n)),
+                          )
+                          .toList(),
                   onChanged: (v) => _numero.text = v ?? '',
                   validator: (v) => v == null ? 'Selecciona el número' : null,
                 ),
@@ -141,8 +156,9 @@ class _ComunidadFormState extends State<ComunidadForm> {
                         : 'Nombre de la parroquia *',
                     icon: Icons.place_outlined,
                   ),
-                  validator: (v) =>
-                      v == null || v.trim().isEmpty ? 'Campo obligatorio' : null,
+                  validator: (v) => v == null || v.trim().isEmpty
+                      ? 'Campo obligatorio'
+                      : null,
                 ),
               ],
             ),
@@ -154,7 +170,10 @@ class _ComunidadFormState extends State<ComunidadForm> {
                 DropdownButtonFormField<String>(
                   initialValue: _paso,
                   isExpanded: true,
-                  decoration: appInput('Último paso *', icon: Icons.flag_outlined),
+                  decoration: appInput(
+                    'Último paso *',
+                    icon: Icons.flag_outlined,
+                  ),
                   items: pasos
                       .map((p) => DropdownMenuItem(value: p, child: Text(p)))
                       .toList(),
@@ -197,7 +216,10 @@ class _ComunidadFormState extends State<ComunidadForm> {
                 TextFormField(
                   controller: _catequistaParroquia,
                   textCapitalization: TextCapitalization.words,
-                  decoration: appInput('Parroquia', icon: Icons.church_outlined),
+                  decoration: appInput(
+                    'Parroquia',
+                    icon: Icons.church_outlined,
+                  ),
                 ),
               ],
             ),

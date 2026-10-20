@@ -22,14 +22,18 @@ Map<String, WidgetBuilder> getAplicationRoutes() {
     'catequista': (BuildContext context) => EquiposCatequistasPage(),
     'main': (BuildContext context) => MainNavigation(),
     'crearComunidad': (BuildContext context) => CrearComunidadPage(),
-    'configuracionComunidad':
-        (BuildContext context) => ConfiguracionComunidadPage(),
+    'configuracionComunidad': (BuildContext context) =>
+        ConfiguracionComunidadPage(),
     'signos': (BuildContext context) => SignosPage(),
     'onboarding': (BuildContext context) => OnboardingPage(),
     'grupos': (BuildContext context) => GruposPage(),
     'carismas': (BuildContext context) => CarismasPage(),
-    'salmistas': (BuildContext context) => const ServicioPage(tipo: 'Salmistas'),
-    'didascalos':
-        (BuildContext context) => const ServicioPage(tipo: 'Didáscalos'),
+    'salmistas': (BuildContext context) =>
+        const ServicioPage(tipo: 'Salmistas'),
+    'lectores': (BuildContext context) => const ServicioPage(tipo: 'Lectores'),
+    'ostiarios': (BuildContext context) =>
+        const ServicioPage(tipo: 'Ostiarios'),
+    'didascalos': (BuildContext context) =>
+        const ServicioPage(tipo: 'Didáscalos'),
   };
 }

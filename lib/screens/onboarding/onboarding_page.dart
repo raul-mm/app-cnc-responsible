@@ -53,12 +53,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
             item.image,
             width: 300,
             fit: BoxFit.cover,
-            errorBuilder:
-                (_, _, _) => const Icon(
-                  Icons.broken_image,
-                  size: 100,
-                  color: Colors.red,
-                ),
+            errorBuilder: (_, _, _) =>
+                const Icon(Icons.broken_image, size: 100, color: Colors.red),
           ),
           const SizedBox(height: 32),
           Text(
@@ -140,10 +136,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       height: 8,
                       width: _currentPage == index ? 24 : 8,
                       decoration: BoxDecoration(
-                        color:
-                            _currentPage == index
-                                ? const Color(0xFFC62828)
-                                : Colors.grey[400],
+                        color: _currentPage == index
+                            ? const Color(0xFFC62828)
+                            : Colors.grey[400],
                         borderRadius: BorderRadius.circular(20),
                       ),
                     ),
@@ -156,13 +151,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 width: 120,
                 height: 40,
                 child: ElevatedButton(
-                  onPressed:
-                      isLastPage
-                          ? _finalizarOnboarding
-                          : () => _pageController.nextPage(
-                            duration: const Duration(milliseconds: 400),
-                            curve: Curves.easeInOut,
-                          ),
+                  onPressed: isLastPage
+                      ? _finalizarOnboarding
+                      : () => _pageController.nextPage(
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.easeInOut,
+                        ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFC62828),
                     foregroundColor: Colors.white,
@@ -170,7 +164,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       borderRadius: BorderRadius.circular(24),
                     ),
                   ),
-                  child: Text(isLastPage ? 'Comenzar' : 'Siguiente', style: TextStyle(fontSize: 12),),
+                  child: Text(
+                    isLastPage ? 'Comenzar' : 'Siguiente',
+                    style: TextStyle(fontSize: 12),
+                  ),
                 ),
               ),
             ],

@@ -17,7 +17,7 @@ class _CarismasPageState extends State<CarismasPage> {
   List<Persona> personas = [];
   List<Map<String, dynamic>> carismas = [];
   List<Map<String, dynamic>> catequistas = [];
-  List<Map<String, dynamic>> salmistas = [];
+  Map<String, List<Map<String, dynamic>>> servicios = {};
   bool soloConPersonas = false;
   bool loading = true;
 
@@ -31,13 +31,16 @@ class _CarismasPageState extends State<CarismasPage> {
     final p = await DBHelper.getPersonas();
     final c = await DBHelper.getCarismas();
     final cat = await DBHelper.getCatequistas();
-    final sal = await DBHelper.getServicio('Salmistas');
+    final serv = {
+      for (final tipo in DBHelper.tiposServicio)
+        tipo: await DBHelper.getServicio(tipo),
+    };
     if (!mounted) return;
     setState(() {
       personas = p;
       carismas = c;
       catequistas = cat;
-      salmistas = sal;
+      servicios = serv;
       loading = false;
     });
   }
@@ -66,7 +69,11 @@ class _CarismasPageState extends State<CarismasPage> {
         spacing: 6,
         runSpacing: 6,
         children: [
-          for (final m in lista) PersonaChip(nombre: m['nombre_completo']),
+          for (final m in lista)
+            PersonaChip(
+              nombre: m['nombre_completo'],
+              etiqueta: m['es_responsable'] == 1 ? '★ Resp.' : null,
+            ),
           ActionChip(
             avatar: const Icon(Icons.open_in_new, size: 16, color: kRojo),
             label: const Text('Gestionar'),
@@ -81,6 +88,9 @@ class _CarismasPageState extends State<CarismasPage> {
       ),
     );
   }
+
+  /// 'Didáscalos' -> 'didascalos' (nombre de la ruta).
+  String _rutaServicio(String tipo) => tipo.toLowerCase().replaceAll('á', 'a');
 
   List<Map<String, dynamic>> _de(String tipo) =>
       carismas.where((c) => c['tipo'] == tipo).toList();
@@ -100,7 +110,7 @@ class _CarismasPageState extends State<CarismasPage> {
   Future<void> _exportar() async {
     final opcion = await showAppSheet<String>(
       context,
-      titulo: 'Exportar',
+      titulo: 'Descargar reporte',
       icon: Icons.file_download_outlined,
       builder: (ctx, _) => Column(
         children: [
@@ -121,20 +131,19 @@ class _CarismasPageState extends State<CarismasPage> {
     );
     if (opcion == null || !mounted) return;
     try {
-      if (opcion == 'ficha') {
-        await Reportes.exportarFicha();
-      } else {
-        await _exportarConvivencia();
-      }
+      final ruta = opcion == 'ficha'
+          ? await Reportes.exportarFicha()
+          : await _exportarConvivencia();
+      if (ruta != null && mounted) toast(context, 'Descargado en $ruta');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo exportar: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('No se pudo exportar: $e')));
     }
   }
 
-  Future<void> _exportarConvivencia() async {
+  Future<String?> _exportarConvivencia() async {
     final formKey = GlobalKey<FormState>();
     final convivencia = TextEditingController();
     final fecha = TextEditingController();
@@ -178,8 +187,8 @@ class _CarismasPageState extends State<CarismasPage> {
         ),
       ),
     );
-    if (ok != true) return;
-    await Reportes.exportarConvivencia(
+    if (ok != true) return null;
+    return Reportes.exportarConvivencia(
       convivencia: convivencia.text.trim(),
       fecha: fecha.text.trim(),
     );
@@ -201,7 +210,7 @@ class _CarismasPageState extends State<CarismasPage> {
   Widget build(BuildContext context) {
     final tipos = _tipos.where((t) => !soloConPersonas || _de(t).isNotEmpty);
     return AppPage(
-      title: 'Carismas',
+      title: 'Consolidado',
       actions: [
         IconButton(
           tooltip: soloConPersonas ? 'Ver todos' : 'Solo con personas',
@@ -212,7 +221,7 @@ class _CarismasPageState extends State<CarismasPage> {
         ),
       ],
       fab: AppFab(
-        label: 'Exportar',
+        label: 'Reportes',
         icon: Icons.file_download_outlined,
         onPressed: _exportar,
       ),
@@ -229,8 +238,11 @@ class _CarismasPageState extends State<CarismasPage> {
               children: [
                 if (!soloConPersonas || catequistas.isNotEmpty)
                   _seccionExterna('Catequistas', catequistas, 'catequista'),
-                if (!soloConPersonas || salmistas.isNotEmpty)
-                  _seccionExterna('Salmistas', salmistas, 'salmistas'),
+                // Servicios: solo lectura, se gestionan en su propia página.
+                for (final MapEntry(key: tipo, value: lista)
+                    in servicios.entries)
+                  if (!soloConPersonas || lista.isNotEmpty)
+                    _seccionExterna(tipo, lista, _rutaServicio(tipo)),
                 for (final t in tipos)
                   SectionCard(
                     title: '$t  (${_de(t).length})',
@@ -244,7 +256,11 @@ class _CarismasPageState extends State<CarismasPage> {
                             onDeleted: () => _quitar(c),
                           ),
                         ActionChip(
-                          avatar: const Icon(Icons.edit, size: 16, color: kRojo),
+                          avatar: const Icon(
+                            Icons.edit,
+                            size: 16,
+                            color: kRojo,
+                          ),
                           label: const Text('Editar'),
                           side: const BorderSide(color: kRojo),
                           backgroundColor: Colors.white,

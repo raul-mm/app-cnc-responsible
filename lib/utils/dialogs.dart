@@ -4,15 +4,20 @@ import 'package:cool_alert_two/cool_alert_two.dart';
 
 class Dialogs {
   static ButtonStyle flatButtonStyle = TextButton.styleFrom(
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(100.0),
-          side: const BorderSide(color: kPrimaryColor)),
-      backgroundColor: kPrimary2Color,
-      foregroundColor: Colors.white,
-      padding: const EdgeInsets.all(8.0));
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(100.0),
+      side: const BorderSide(color: kPrimaryColor),
+    ),
+    backgroundColor: kPrimary2Color,
+    foregroundColor: Colors.white,
+    padding: const EdgeInsets.all(8.0),
+  );
 
-  static void showDialogLogoutMejorado(BuildContext context,
-      {VoidCallback? onOk, VoidCallback? onCancel}) {
+  static void showDialogLogoutMejorado(
+    BuildContext context, {
+    VoidCallback? onOk,
+    VoidCallback? onCancel,
+  }) {
     CoolAlertTwo.show(
       title: "Confirmación",
       animType: CoolAlertTwoAnimType.scale,
@@ -30,8 +35,12 @@ class Dialogs {
     );
   }
 
-  static void showDialogPersonalizado(BuildContext context, String text,
-      {VoidCallback? onOk, VoidCallback? onCancel}) {
+  static void showDialogPersonalizado(
+    BuildContext context,
+    String text, {
+    VoidCallback? onOk,
+    VoidCallback? onCancel,
+  }) {
     CoolAlertTwo.show(
       title: "Confirmación",
       animType: CoolAlertTwoAnimType.scale,
@@ -50,7 +59,11 @@ class Dialogs {
   }
 
   static void showDialogValidar(
-      BuildContext context, String title, String text, CoolAlertTwoType cooAlert) {
+    BuildContext context,
+    String title,
+    String text,
+    CoolAlertTwoType cooAlert,
+  ) {
     CoolAlertTwo.show(
       title: title,
       animType: CoolAlertTwoAnimType.scale,
@@ -63,8 +76,13 @@ class Dialogs {
     );
   }
 
-  static void showDialogSuccess(BuildContext context, param1,
-      {String title = '', String text = '', VoidCallback? onOk}) {
+  static void showDialogSuccess(
+    BuildContext context,
+    param1, {
+    String title = '',
+    String text = '',
+    VoidCallback? onOk,
+  }) {
     CoolAlertTwo.show(
       title: title,
       onConfirmBtnTap: onOk,
@@ -77,9 +95,12 @@ class Dialogs {
       text: text,
     );
   }
-  
+
   static void showDialogLoading(
-      BuildContext context, String title, String text) {
+    BuildContext context,
+    String title,
+    String text,
+  ) {
     CoolAlertTwo.show(
       title: title,
       animType: CoolAlertTwoAnimType.scale,

@@ -11,10 +11,10 @@ import '../models/persona.dart';
 ///             ├─< signo_responsables          >─ signos
 ///             ├─< grupo_miembros              >─ grupos (tipo: Palabra, ...)
 ///             ├─< carismas                     (varios por persona)
-///             └─< servicios                    (tipo: Salmistas, Didáscalos)
+///             └─< servicios                    (tipo: Salmistas, Lectores, Ostiarios, Didáscalos)
 ///   comunidad ── equipo_catequista_id ──> equipos_catequistas
 class DBHelper {
-  static const _version = 4;
+  static const _version = 6;
   static Database? _database;
 
   static Future<Database> getDatabase() async {
@@ -51,6 +51,22 @@ class DBHelper {
           );
         }
         if (oldVersion < 4) await _crearServicios(db);
+        if (oldVersion < 5) {
+          // Lector pasa de carisma a servicio.
+          await db.execute('''
+            INSERT OR IGNORE INTO servicios (tipo, persona_id)
+            SELECT 'Lectores', persona_id FROM carismas WHERE tipo = 'Lector'
+          ''');
+          await db.execute("DELETE FROM carismas WHERE tipo = 'Lector'");
+        }
+        if (oldVersion < 6) {
+          // Ostiario pasa de carisma a servicio.
+          await db.execute('''
+            INSERT OR IGNORE INTO servicios (tipo, persona_id)
+            SELECT 'Ostiarios', persona_id FROM carismas WHERE tipo = 'Ostiario'
+          ''');
+          await db.execute("DELETE FROM carismas WHERE tipo = 'Ostiario'");
+        }
       },
     );
 
@@ -97,7 +113,7 @@ class DBHelper {
     )
   ''');
 
-  /// Servicios (salmistas, didáscalos): un responsable y varios miembros.
+  /// Servicios (salmistas, lectores, ostiarios, didáscalos): un responsable y varios miembros.
   static Future<void> _crearServicios(DatabaseExecutor db) => db.execute('''
     CREATE TABLE servicios (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -351,9 +367,16 @@ class DBHelper {
       'salmistas': await count(
         "SELECT COUNT(*) FROM servicios WHERE tipo = 'Salmistas'",
       ),
+      'lectores': await count(
+        "SELECT COUNT(*) FROM servicios WHERE tipo = 'Lectores'",
+      ),
+      'ostiarios': await count(
+        "SELECT COUNT(*) FROM servicios WHERE tipo = 'Ostiarios'",
+      ),
       'didascalos': await count(
         "SELECT COUNT(*) FROM servicios WHERE tipo = 'Didáscalos'",
       ),
+      'servicios': await count('SELECT COUNT(*) FROM servicios'),
     };
   }
 
@@ -404,31 +427,39 @@ class DBHelper {
 
   static Future<List<Map<String, dynamic>>> getServicio(String tipo) async {
     final db = await getDatabase();
-    return db.rawQuery('''
+    return db.rawQuery(
+      '''
       SELECT s.id, s.persona_id, s.es_responsable,
              p.nombres || ' ' || p.apellidos AS nombre_completo, p.telefono
       FROM servicios s
       JOIN personas p ON s.persona_id = p.id
       WHERE s.tipo = ?
       ORDER BY s.es_responsable DESC, p.nombres
-    ''', [tipo]);
+    ''',
+      [tipo],
+    );
   }
 
-  static Future<void> agregarAServicio(String tipo, List<int> personaIds) async {
+  static Future<void> agregarAServicio(
+    String tipo,
+    List<int> personaIds,
+  ) async {
     final db = await getDatabase();
     final batch = db.batch();
     for (final id in personaIds) {
-      batch.insert(
-        'servicios',
-        {'tipo': tipo, 'persona_id': id},
-        conflictAlgorithm: ConflictAlgorithm.ignore,
-      );
+      batch.insert('servicios', {
+        'tipo': tipo,
+        'persona_id': id,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
     }
     await batch.commit(noResult: true);
   }
 
   /// Deja a `personaId` como único responsable del servicio (null = ninguno).
-  static Future<void> setResponsableServicio(String tipo, int? personaId) async {
+  static Future<void> setResponsableServicio(
+    String tipo,
+    int? personaId,
+  ) async {
     final db = await getDatabase();
     await db.transaction((txn) async {
       await txn.update(
@@ -452,6 +483,78 @@ class DBHelper {
     final db = await getDatabase();
     await db.delete('servicios', where: 'id = ?', whereArgs: [id]);
   }
+
+  /// Servicios de una persona: tipos en `servicios` y su equipo de catequistas.
+  static Future<({Set<String> tipos, int? equipoCatequistaId})>
+  getServiciosPersona(int personaId) async {
+    final db = await getDatabase();
+    final s = await db.query(
+      'servicios',
+      columns: ['tipo'],
+      where: 'persona_id = ?',
+      whereArgs: [personaId],
+    );
+    final e = await db.query(
+      'equipo_catequistas_miembros',
+      columns: ['equipo_id'],
+      where: 'persona_id = ?',
+      whereArgs: [personaId],
+      limit: 1,
+    );
+    return (
+      tipos: s.map((r) => r['tipo'] as String).toSet(),
+      equipoCatequistaId: e.isEmpty ? null : e.first['equipo_id'] as int,
+    );
+  }
+
+  /// Guarda desde la ficha de la persona si es salmista, didáscalo o
+  /// catequista (`equipoCatequistaId` null = no es catequista).
+  static Future<void> setServiciosPersona(
+    int personaId, {
+    required Set<String> tipos,
+    int? equipoCatequistaId,
+  }) async {
+    final db = await getDatabase();
+    await db.transaction((txn) async {
+      for (final tipo in tiposServicio) {
+        if (tipos.contains(tipo)) {
+          await txn.insert('servicios', {
+            'tipo': tipo,
+            'persona_id': personaId,
+          }, conflictAlgorithm: ConflictAlgorithm.ignore);
+        } else {
+          await txn.delete(
+            'servicios',
+            where: 'tipo = ? AND persona_id = ?',
+            whereArgs: [tipo, personaId],
+          );
+        }
+      }
+      await txn.delete(
+        'equipo_catequistas_miembros',
+        where: 'persona_id = ? AND equipo_id IS NOT ?',
+        whereArgs: [personaId, equipoCatequistaId],
+      );
+      if (equipoCatequistaId != null) {
+        await txn.insert(
+          'equipo_catequistas_miembros',
+          {
+            'equipo_id': equipoCatequistaId,
+            'persona_id': personaId,
+            'rol': 'Catequista',
+          },
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+    });
+  }
+
+  static const tiposServicio = [
+    'Salmistas',
+    'Lectores',
+    'Ostiarios',
+    'Didáscalos',
+  ];
 
   // ===========================================================
   // EQUIPOS DE CATEQUISTAS
@@ -746,7 +849,10 @@ class DBHelper {
     ''');
   }
 
-  static Future<void> setCarismasPersona(int personaId, List<String> tipos) async {
+  static Future<void> setCarismasPersona(
+    int personaId,
+    List<String> tipos,
+  ) async {
     final db = await getDatabase();
     await db.transaction((txn) async {
       await txn.delete(
@@ -760,7 +866,10 @@ class DBHelper {
     });
   }
 
-  static Future<void> setPersonasCarisma(String tipo, List<int> personaIds) async {
+  static Future<void> setPersonasCarisma(
+    String tipo,
+    List<int> personaIds,
+  ) async {
     final db = await getDatabase();
     await db.transaction((txn) async {
       await txn.delete('carismas', where: 'tipo = ?', whereArgs: [tipo]);

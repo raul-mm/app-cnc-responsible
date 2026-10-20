@@ -19,13 +19,11 @@ const List<String> tiposCarisma = [
   'Presbítero',
   'Seminarista',
   'Diácono',
-  'Ostiario',
-  'Lector',
   'Familia en misión',
   'Itinerante',
 ];
 
-/// Carismas que ya no se asignan a mano: los catequistas y salmistas salen
+/// Carismas que ya no se asignan a mano: catequistas, salmistas, lectores y ostiarios salen
 /// de sus propias tablas y el resto se retiró del catálogo.
 const List<String> carismasRetirados = [
   'Catequista',
@@ -33,6 +31,8 @@ const List<String> carismasRetirados = [
   'Acólito',
   'Responsable de Salmos',
   'Vocación religiosa',
+  'Lector',
+  'Ostiario',
 ];
 
 const List<String> pasosCamino = [
@@ -48,4 +48,9 @@ const List<String> pasosCamino = [
   'Renovación de promesas bautismales',
 ];
 
-const List<String> estadosCiviles = ['Soltero', 'Casado', 'Viudo', 'Divorciado'];
+const List<String> estadosCiviles = [
+  'Soltero',
+  'Casado',
+  'Viudo',
+  'Divorciado',
+];

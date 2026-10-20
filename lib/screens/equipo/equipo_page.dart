@@ -44,7 +44,9 @@ class _EquipoPageState extends State<EquipoPage> {
             .map(
               (c) => ListTile(
                 leading: Icon(
-                  c == actual ? Icons.radio_button_checked : Icons.radio_button_off,
+                  c == actual
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_off,
                   color: kRojo,
                 ),
                 title: Text(c),
@@ -57,7 +59,11 @@ class _EquipoPageState extends State<EquipoPage> {
   }
 
   /// Guarda el cargo garantizando un único Responsable.
-  Future<void> _guardar({int? id, required int personaId, required String cargo}) async {
+  Future<void> _guardar({
+    int? id,
+    required int personaId,
+    required String cargo,
+  }) async {
     if (cargo == 'Responsable') {
       final actual = equipo.where(
         (m) => m['cargo'] == 'Responsable' && m['persona_id'] != personaId,
@@ -80,12 +86,18 @@ class _EquipoPageState extends State<EquipoPage> {
         );
       }
     }
-    await DBHelper.guardarMiembroEquipo(id: id, personaId: personaId, cargo: cargo);
+    await DBHelper.guardarMiembroEquipo(
+      id: id,
+      personaId: personaId,
+      cargo: cargo,
+    );
     await _cargar();
   }
 
   Future<void> _agregar() async {
-    final enEquipo = {for (final m in equipo) m['persona_id'] as int: 'Ya es ${m['cargo']}'};
+    final enEquipo = {
+      for (final m in equipo) m['persona_id'] as int: 'Ya es ${m['cargo']}',
+    };
     final sel = await seleccionarPersonas(
       context,
       titulo: 'Agregar al equipo',
@@ -133,7 +145,8 @@ class _EquipoPageState extends State<EquipoPage> {
           ? const EmptyState(
               icon: Icons.groups_2_outlined,
               text: 'El equipo está vacío',
-              hint: 'Elige entre las personas registradas al responsable, '
+              hint:
+                  'Elige entre las personas registradas al responsable, '
                   'viceresponsable y corresponsables.',
             )
           : ListView(

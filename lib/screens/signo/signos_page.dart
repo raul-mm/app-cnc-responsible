@@ -59,7 +59,10 @@ class _SignosPageState extends State<SignosPage> {
             TextFormField(
               controller: nombre,
               textCapitalization: TextCapitalization.sentences,
-              decoration: appInput('Nombre del signo *', icon: Icons.label_outline),
+              decoration: appInput(
+                'Nombre del signo *',
+                icon: Icons.label_outline,
+              ),
               validator: (v) =>
                   v == null || v.trim().isEmpty ? 'Campo obligatorio' : null,
             ),
@@ -178,7 +181,11 @@ class _SignosPageState extends State<SignosPage> {
   Widget build(BuildContext context) {
     return AppPage(
       title: 'Signos',
-      fab: AppFab(label: 'Signo', icon: Icons.add, onPressed: () => _formulario()),
+      fab: AppFab(
+        label: 'Signo',
+        icon: Icons.add,
+        onPressed: () => _formulario(),
+      ),
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : signos.isEmpty

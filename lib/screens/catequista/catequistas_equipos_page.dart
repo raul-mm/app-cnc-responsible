@@ -187,7 +187,10 @@ class _EquiposCatequistasPageState extends State<EquiposCatequistasPage> {
             }
           },
           itemBuilder: (_) => [
-            const PopupMenuItem(value: 'miembros', child: Text('Editar miembros')),
+            const PopupMenuItem(
+              value: 'miembros',
+              child: Text('Editar miembros'),
+            ),
             if (!esDeComunidad)
               const PopupMenuItem(
                 value: 'comunidad',
@@ -202,7 +205,10 @@ class _EquiposCatequistasPageState extends State<EquiposCatequistasPage> {
           ? TextButton.icon(
               onPressed: () => _agregarMiembros(id),
               icon: const Icon(Icons.person_add_alt, color: kRojo),
-              label: const Text('Agregar miembros', style: TextStyle(color: kRojo)),
+              label: const Text(
+                'Agregar miembros',
+                style: TextStyle(color: kRojo),
+              ),
             )
           : Wrap(
               spacing: 6,
