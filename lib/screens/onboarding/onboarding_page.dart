@@ -102,23 +102,25 @@ class _OnboardingPageState extends State<OnboardingPage> {
             },
             itemBuilder: (_, i) => _buildPage(_items[i]),
           ),
-          Positioned(
-            top: 16,
-            right: 16,
-            child: Visibility(
-              visible: !isLastPage,
-              child: TextButton(
-                onPressed: _finalizarOnboarding,
-                child: const Text(
-                  'Omitir',
-                  style: TextStyle(
-                    color: Color(0xFFC62828),
-                    fontWeight: FontWeight.bold,
+          if (!isLastPage)
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topRight,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8, right: 16),
+                  child: TextButton(
+                    onPressed: _finalizarOnboarding,
+                    child: const Text(
+                      'Omitir',
+                      style: TextStyle(
+                        color: Color(0xFFC62828),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
         ],
       ),
       bottomNavigationBar: SafeArea(

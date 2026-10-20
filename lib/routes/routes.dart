@@ -8,6 +8,7 @@ import 'package:app_movil_comunidad/screens/dashboard/main_navigation.dart';
 import 'package:app_movil_comunidad/screens/equipo/equipo_page.dart';
 import 'package:app_movil_comunidad/screens/grupos/grupos_page.dart';
 import 'package:app_movil_comunidad/screens/onboarding/onboarding_page.dart';
+import 'package:app_movil_comunidad/screens/servicio/servicio_page.dart';
 import 'package:app_movil_comunidad/screens/signo/signos_page.dart';
 import 'package:app_movil_comunidad/screens/splash/splash_page.dart';
 import 'package:flutter/cupertino.dart';
@@ -27,5 +28,8 @@ Map<String, WidgetBuilder> getAplicationRoutes() {
     'onboarding': (BuildContext context) => OnboardingPage(),
     'grupos': (BuildContext context) => GruposPage(),
     'carismas': (BuildContext context) => CarismasPage(),
+    'salmistas': (BuildContext context) => const ServicioPage(tipo: 'Salmistas'),
+    'didascalos':
+        (BuildContext context) => const ServicioPage(tipo: 'Didáscalos'),
   };
 }

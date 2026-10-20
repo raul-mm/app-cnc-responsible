@@ -10,10 +10,11 @@ import '../models/persona.dart';
 ///             ├─< equipo_catequistas_miembros >─ equipos_catequistas
 ///             ├─< signo_responsables          >─ signos
 ///             ├─< grupo_miembros              >─ grupos (tipo: Palabra, ...)
-///             └─< carismas                     (varios por persona)
+///             ├─< carismas                     (varios por persona)
+///             └─< servicios                    (tipo: Salmistas, Didáscalos)
 ///   comunidad ── equipo_catequista_id ──> equipos_catequistas
 class DBHelper {
-  static const _version = 3;
+  static const _version = 4;
   static Database? _database;
 
   static Future<Database> getDatabase() async {
@@ -37,6 +38,7 @@ class DBHelper {
         await _crearSignoResponsables(db);
         await _crearGrupos(db);
         await _crearCarismas(db);
+        await _crearServicios(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) await _migrarV2(db);
@@ -48,6 +50,7 @@ class DBHelper {
             'ALTER TABLE comunidad ADD COLUMN catequistaParroquia TEXT',
           );
         }
+        if (oldVersion < 4) await _crearServicios(db);
       },
     );
 
@@ -91,6 +94,18 @@ class DBHelper {
       catequistaParroquia TEXT,
       equipo_catequista_id INTEGER
         REFERENCES equipos_catequistas(id) ON DELETE SET NULL
+    )
+  ''');
+
+  /// Servicios (salmistas, didáscalos): un responsable y varios miembros.
+  static Future<void> _crearServicios(DatabaseExecutor db) => db.execute('''
+    CREATE TABLE servicios (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tipo TEXT NOT NULL,
+      persona_id INTEGER NOT NULL
+        REFERENCES personas(id) ON DELETE CASCADE,
+      es_responsable INTEGER NOT NULL DEFAULT 0,
+      UNIQUE(tipo, persona_id)
     )
   ''');
 
@@ -333,6 +348,12 @@ class DBHelper {
       'signos': await count('SELECT COUNT(*) FROM signos'),
       'grupos': await count('SELECT COUNT(*) FROM grupos'),
       'carismas': await count('SELECT COUNT(*) FROM carismas'),
+      'salmistas': await count(
+        "SELECT COUNT(*) FROM servicios WHERE tipo = 'Salmistas'",
+      ),
+      'didascalos': await count(
+        "SELECT COUNT(*) FROM servicios WHERE tipo = 'Didáscalos'",
+      ),
     };
   }
 
@@ -375,6 +396,61 @@ class DBHelper {
   static Future<void> deleteMiembroEquipo(int miembroId) async {
     final db = await getDatabase();
     await db.delete('equipo', where: 'id = ?', whereArgs: [miembroId]);
+  }
+
+  // ===========================================================
+  // SERVICIOS (SALMISTAS, DIDÁSCALOS)
+  // ===========================================================
+
+  static Future<List<Map<String, dynamic>>> getServicio(String tipo) async {
+    final db = await getDatabase();
+    return db.rawQuery('''
+      SELECT s.id, s.persona_id, s.es_responsable,
+             p.nombres || ' ' || p.apellidos AS nombre_completo, p.telefono
+      FROM servicios s
+      JOIN personas p ON s.persona_id = p.id
+      WHERE s.tipo = ?
+      ORDER BY s.es_responsable DESC, p.nombres
+    ''', [tipo]);
+  }
+
+  static Future<void> agregarAServicio(String tipo, List<int> personaIds) async {
+    final db = await getDatabase();
+    final batch = db.batch();
+    for (final id in personaIds) {
+      batch.insert(
+        'servicios',
+        {'tipo': tipo, 'persona_id': id},
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
+  /// Deja a `personaId` como único responsable del servicio (null = ninguno).
+  static Future<void> setResponsableServicio(String tipo, int? personaId) async {
+    final db = await getDatabase();
+    await db.transaction((txn) async {
+      await txn.update(
+        'servicios',
+        {'es_responsable': 0},
+        where: 'tipo = ?',
+        whereArgs: [tipo],
+      );
+      if (personaId != null) {
+        await txn.update(
+          'servicios',
+          {'es_responsable': 1},
+          where: 'tipo = ? AND persona_id = ?',
+          whereArgs: [tipo, personaId],
+        );
+      }
+    });
+  }
+
+  static Future<void> quitarDeServicio(int id) async {
+    final db = await getDatabase();
+    await db.delete('servicios', where: 'id = ?', whereArgs: [id]);
   }
 
   // ===========================================================
@@ -655,6 +731,18 @@ class DBHelper {
       FROM carismas c
       JOIN personas p ON p.id = c.persona_id
       ORDER BY c.tipo, p.nombres
+    ''');
+  }
+
+  /// Personas que pertenecen a algún equipo de catequistas.
+  static Future<List<Map<String, dynamic>>> getCatequistas() async {
+    final db = await getDatabase();
+    return db.rawQuery('''
+      SELECT DISTINCT p.id AS persona_id,
+             p.nombres || ' ' || p.apellidos AS nombre_completo
+      FROM equipo_catequistas_miembros m
+      JOIN personas p ON p.id = m.persona_id
+      ORDER BY p.nombres
     ''');
   }
 

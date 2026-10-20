@@ -19,14 +19,19 @@ const List<String> tiposCarisma = [
   'Presbítero',
   'Seminarista',
   'Diácono',
-  'Catequista',
-  'Salmista / Cantor',
   'Ostiario',
   'Lector',
-  'Acólito',
-  'Responsable de Salmos',
   'Familia en misión',
   'Itinerante',
+];
+
+/// Carismas que ya no se asignan a mano: los catequistas y salmistas salen
+/// de sus propias tablas y el resto se retiró del catálogo.
+const List<String> carismasRetirados = [
+  'Catequista',
+  'Salmista / Cantor',
+  'Acólito',
+  'Responsable de Salmos',
   'Vocación religiosa',
 ];
 

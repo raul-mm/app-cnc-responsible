@@ -1,5 +1,6 @@
 import 'package:app_movil_comunidad/db/db_helper.dart';
 import 'package:app_movil_comunidad/models/persona.dart';
+import 'package:app_movil_comunidad/services/reportes.dart';
 import 'package:app_movil_comunidad/utils/catalogos.dart';
 import 'package:app_movil_comunidad/widgets/ui.dart';
 import 'package:flutter/material.dart';
@@ -15,6 +16,8 @@ class CarismasPage extends StatefulWidget {
 class _CarismasPageState extends State<CarismasPage> {
   List<Persona> personas = [];
   List<Map<String, dynamic>> carismas = [];
+  List<Map<String, dynamic>> catequistas = [];
+  List<Map<String, dynamic>> salmistas = [];
   bool soloConPersonas = false;
   bool loading = true;
 
@@ -27,22 +30,57 @@ class _CarismasPageState extends State<CarismasPage> {
   Future<void> _cargar() async {
     final p = await DBHelper.getPersonas();
     final c = await DBHelper.getCarismas();
+    final cat = await DBHelper.getCatequistas();
+    final sal = await DBHelper.getServicio('Salmistas');
     if (!mounted) return;
     setState(() {
       personas = p;
       carismas = c;
+      catequistas = cat;
+      salmistas = sal;
       loading = false;
     });
   }
 
-  /// Incluye tipos antiguos que no estén en el catálogo actual.
+  /// Incluye tipos antiguos que no estén en el catálogo actual,
+  /// salvo los retirados.
   List<String> get _tipos => [
     ...tiposCarisma,
     ...carismas
         .map((c) => c['tipo'] as String)
-        .where((t) => !tiposCarisma.contains(t))
+        .where(
+          (t) => !tiposCarisma.contains(t) && !carismasRetirados.contains(t),
+        )
         .toSet(),
   ];
+
+  /// Sección de solo lectura cuyos datos vienen de otra pantalla.
+  Widget _seccionExterna(
+    String titulo,
+    List<Map<String, dynamic>> lista,
+    String ruta,
+  ) {
+    return SectionCard(
+      title: '$titulo  (${lista.length})',
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (final m in lista) PersonaChip(nombre: m['nombre_completo']),
+          ActionChip(
+            avatar: const Icon(Icons.open_in_new, size: 16, color: kRojo),
+            label: const Text('Gestionar'),
+            side: const BorderSide(color: kRojo),
+            backgroundColor: Colors.white,
+            onPressed: () async {
+              await Navigator.pushNamed(context, ruta);
+              _cargar();
+            },
+          ),
+        ],
+      ),
+    );
+  }
 
   List<Map<String, dynamic>> _de(String tipo) =>
       carismas.where((c) => c['tipo'] == tipo).toList();
@@ -59,56 +97,92 @@ class _CarismasPageState extends State<CarismasPage> {
     await _cargar();
   }
 
-  Future<void> _porPersona() async {
-    final sel = await seleccionarPersonas(
+  Future<void> _exportar() async {
+    final opcion = await showAppSheet<String>(
       context,
-      titulo: 'Elige una persona',
-      personas: personas,
-      multiple: false,
-    );
-    if (sel == null || sel.isEmpty || !mounted) return;
-    final p = sel.first;
-    final marcados = carismas
-        .where((c) => c['persona_id'] == p.id)
-        .map((c) => c['tipo'] as String)
-        .toSet();
-
-    final guardar = await showAppSheet<bool>(
-      context,
-      titulo: 'Carismas de ${p.nombreCompleto}',
-      icon: Icons.auto_awesome_outlined,
-      builder: (ctx, setSheet) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      titulo: 'Exportar',
+      icon: Icons.file_download_outlined,
+      builder: (ctx, _) => Column(
         children: [
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: _tipos
-                .map(
-                  (t) => FilterChip(
-                    label: Text(t),
-                    selected: marcados.contains(t),
-                    selectedColor: kRojo.withValues(alpha: 0.15),
-                    checkmarkColor: kRojo,
-                    onSelected: (v) =>
-                        setSheet(() => v ? marcados.add(t) : marcados.remove(t)),
-                  ),
-                )
-                .toList(),
+          ListTile(
+            leading: const Icon(Icons.table_chart_outlined, color: kRojo),
+            title: const Text('Ficha de la comunidad'),
+            subtitle: const Text('Excel (.xlsx)'),
+            onTap: () => Navigator.pop(ctx, 'ficha'),
           ),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            style: primaryButton(),
-            icon: const Icon(Icons.save),
-            label: const Text('Guardar'),
-            onPressed: () => Navigator.pop(ctx, true),
+          ListTile(
+            leading: const Icon(Icons.description_outlined, color: kRojo),
+            title: const Text('Formato de convivencias'),
+            subtitle: const Text('Word (.docx)'),
+            onTap: () => Navigator.pop(ctx, 'convivencia'),
           ),
         ],
       ),
     );
-    if (guardar != true) return;
-    await DBHelper.setCarismasPersona(p.id!, marcados.toList());
-    await _cargar();
+    if (opcion == null || !mounted) return;
+    try {
+      if (opcion == 'ficha') {
+        await Reportes.exportarFicha();
+      } else {
+        await _exportarConvivencia();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo exportar: $e')),
+      );
+    }
+  }
+
+  Future<void> _exportarConvivencia() async {
+    final formKey = GlobalKey<FormState>();
+    final convivencia = TextEditingController();
+    final fecha = TextEditingController();
+    final ok = await showAppSheet<bool>(
+      context,
+      titulo: 'Formato de convivencias',
+      icon: Icons.description_outlined,
+      builder: (ctx, _) => Form(
+        key: formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              controller: convivencia,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: appInput(
+                'Convivencia de *',
+                icon: Icons.event_note_outlined,
+              ),
+              validator: (v) =>
+                  v == null || v.trim().isEmpty ? 'Campo obligatorio' : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: fecha,
+              decoration: appInput(
+                'Fecha de la convivencia',
+                icon: Icons.calendar_today_outlined,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              style: primaryButton(),
+              icon: const Icon(Icons.file_download_outlined),
+              label: const Text('Exportar'),
+              onPressed: () {
+                if (formKey.currentState!.validate()) Navigator.pop(ctx, true);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+    await Reportes.exportarConvivencia(
+      convivencia: convivencia.text.trim(),
+      fecha: fecha.text.trim(),
+    );
   }
 
   Future<void> _quitar(Map<String, dynamic> c) async {
@@ -138,9 +212,9 @@ class _CarismasPageState extends State<CarismasPage> {
         ),
       ],
       fab: AppFab(
-        label: 'Por persona',
-        icon: Icons.person_search,
-        onPressed: _porPersona,
+        label: 'Exportar',
+        icon: Icons.file_download_outlined,
+        onPressed: _exportar,
       ),
       body: loading
           ? const Center(child: CircularProgressIndicator())
@@ -153,6 +227,10 @@ class _CarismasPageState extends State<CarismasPage> {
           : ListView(
               padding: const EdgeInsets.only(top: 10, bottom: 90),
               children: [
+                if (!soloConPersonas || catequistas.isNotEmpty)
+                  _seccionExterna('Catequistas', catequistas, 'catequista'),
+                if (!soloConPersonas || salmistas.isNotEmpty)
+                  _seccionExterna('Salmistas', salmistas, 'salmistas'),
                 for (final t in tipos)
                   SectionCard(
                     title: '$t  (${_de(t).length})',

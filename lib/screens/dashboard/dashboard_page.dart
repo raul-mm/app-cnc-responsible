@@ -24,6 +24,8 @@ class _DashboardPageState extends State<DashboardPage>
     _DashboardItem('Grupos', Icons.diversity_3_outlined, 'grupos', 'grupos'),
     _DashboardItem('Signos', Icons.volunteer_activism_outlined, 'signos', 'signos'),
     _DashboardItem('Carismas', Icons.auto_awesome_outlined, 'carismas', 'carismas'),
+    _DashboardItem('Salmistas', Icons.music_note_outlined, 'salmistas', 'salmistas'),
+    _DashboardItem('Didáscalos', Icons.menu_book_outlined, 'didascalos', 'didascalos'),
   ];
 
   @override

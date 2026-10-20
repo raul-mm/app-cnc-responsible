@@ -45,10 +45,6 @@ class _SignosPageState extends State<SignosPage> {
     final compra = TextEditingController(text: signo?.fechaCompra);
     final entrega = TextEditingController(text: signo?.fechaEntrega);
     final obs = TextEditingController(text: signo?.observacion);
-    final elegidos = <Persona>[
-      for (final r in responsables[signo?.id] ?? const [])
-        ...personas.where((p) => p.id == r['persona_id']),
-    ];
     const gap = SizedBox(height: 12);
 
     await showAppSheet(
@@ -84,52 +80,6 @@ class _SignosPageState extends State<SignosPage> {
               maxLines: 2,
               decoration: appInput('Observación', icon: Icons.notes),
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Responsables',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                TextButton.icon(
-                  icon: const Icon(Icons.person_add_alt, color: kRojo),
-                  label: const Text('Elegir', style: TextStyle(color: kRojo)),
-                  onPressed: () async {
-                    final sel = await seleccionarPersonas(
-                      ctx,
-                      titulo: 'Responsables del signo',
-                      personas: personas,
-                      seleccionadas: elegidos.map((p) => p.id!).toSet(),
-                    );
-                    if (sel != null) {
-                      setSheet(() => elegidos
-                        ..clear()
-                        ..addAll(sel));
-                    }
-                  },
-                ),
-              ],
-            ),
-            if (elegidos.isEmpty)
-              Text(
-                'Sin responsables asignados',
-                style: TextStyle(color: Colors.grey.shade600),
-              )
-            else
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: elegidos
-                    .map(
-                      (p) => PersonaChip(
-                        nombre: p.nombreCompleto,
-                        onDeleted: () => setSheet(() => elegidos.remove(p)),
-                      ),
-                    )
-                    .toList(),
-              ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
               style: primaryButton(),
@@ -147,17 +97,11 @@ class _SignosPageState extends State<SignosPage> {
                   fechaEntrega: vacio(entrega),
                   observacion: vacio(obs),
                 );
-                int id;
                 if (signo == null) {
-                  id = await DBHelper.insertarSigno(nuevo);
+                  await DBHelper.insertarSigno(nuevo);
                 } else {
                   await DBHelper.actualizarSigno(nuevo);
-                  id = signo.id!;
                 }
-                await DBHelper.setResponsablesSigno(
-                  id,
-                  elegidos.map((p) => p.id!).toList(),
-                );
                 if (ctx.mounted) Navigator.pop(ctx);
               },
             ),
@@ -215,19 +159,16 @@ class _SignosPageState extends State<SignosPage> {
               padding: const EdgeInsets.only(top: 4),
               child: Text(s.observacion!, style: const TextStyle(fontSize: 13)),
             ),
-          const SizedBox(height: 8),
-          resp.isEmpty
-              ? Text(
-                  'Sin responsables',
-                  style: TextStyle(color: Colors.orange.shade800, fontSize: 13),
-                )
-              : Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: resp
-                      .map((r) => PersonaChip(nombre: r['nombre_completo']))
-                      .toList(),
-                ),
+          if (resp.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: resp
+                  .map((r) => PersonaChip(nombre: r['nombre_completo']))
+                  .toList(),
+            ),
+          ],
         ],
       ),
     );
